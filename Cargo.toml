@@ -1,0 +1,29 @@
+[package]
+name = "oci-registry"
+version = "0.1.0"
+edition = "2021"
+
+[profile.dev]
+debug = 1
+
+[profile.release]
+debug = 1
+
+[dependencies]
+actix-web = "4.2.1"
+clap = { version = "4.0.12", features = ["derive", "env"] }
+compact_str = { version = "0.6.1", features = ["serde"] }
+dkregistry = { version = "0.5.1-alpha.0", git = "https://github.com/mcronce/dkregistry-rs.git", default-features = false, features = ["reqwest-rustls"] }
+hex = "0.4.3"
+lazy-regex = "2.3.0"
+oci-spec = { version = "0.5.8", default-features = false, features = ["distribution", "image"] }
+regex = "1.6.0"
+s3handler = { version = "0.8.0", features = ["tokio"] }
+serde = { version = "1.0.145", features = ["derive"] }
+serde_json = "1.0.86"
+serde_with = { version = "2.0.1", features = ["hex"] }
+sha2 = "0.10.6"
+thiserror = "1.0.37"
+tokio = { version = "1.21.2", features = ["sync"] }
+tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+

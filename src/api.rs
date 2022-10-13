@@ -94,11 +94,10 @@ pub async fn check_manifest(path: web::Path<ManifestRequest>, invalidation: web:
 
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, media_type.to_string()));
-	response.insert_header((http::header::CONTENT_LENGTH, body.len()));
 	if let Some(digest) = manifest.digest.clone() {
 		response.insert_header(("Docker-Content-Digest", digest));
 	}
-	Ok(response.finish())
+	Ok(response.body(body))
 }
 
 #[derive(Debug, Deserialize)]

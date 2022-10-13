@@ -8,7 +8,6 @@ use dkregistry::v2::manifest::Manifest;
 use dkregistry::v2::Client;
 use s3handler::none_blocking::primitives::S3Pool;
 use serde::Deserialize;
-use tokio::sync::Mutex;
 
 use crate::image::ImageName;
 use crate::image::ImageReference;

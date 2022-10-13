@@ -3,9 +3,9 @@ use dkregistry::v2::Client;
 
 #[derive(Debug, Parser)]
 pub struct UpstreamConfig {
-	#[clap(env, long, default_value = "proxy.docker.cronce.io")]
+	#[clap(env, long, default_value = "registry-1.docker.io")]
 	upstream_host: String,
-	#[clap(env, long, default_value_t = false)]
+	#[clap(env, long, default_value_t = true)]
 	upstream_tls: bool,
 	#[clap(env = "UPSTREAM_INSECURE_TLS", long = "upstream-insecure-tls")]
 	upstream_accept_invalid_certs: bool,

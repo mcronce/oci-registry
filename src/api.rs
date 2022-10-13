@@ -1,3 +1,4 @@
+use core::time::Duration;
 use std::iter;
 use std::sync::Arc;
 
@@ -16,6 +17,7 @@ use crate::image::ImageName;
 use crate::image::ImageReference;
 use crate::storage::Manifest;
 use crate::storage::Repository;
+use crate::InvalidationTime;
 
 mod error;
 use error::Error;
@@ -45,13 +47,16 @@ impl ManifestRequest {
 	}
 }
 
-async fn get_manifest(req: &ManifestRequest, repo: &Repository, upstream: web::Data<Client>) -> Result<Manifest, Error> {
+async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repository, upstream: web::Data<Client>) -> Result<Manifest, Error> {
 	let path = req.path();
 	let path = path.strip_prefix("/").unwrap();
-	if let Ok(stream) = repo.clone().read(&path).await {
-		let body = stream.try_collect::<web::BytesMut>().await?;
-		let manifest = serde_json::from_slice(body.as_ref())?;
-		return Ok(manifest);
+	match repo.clone().read(&path, max_age).await {
+		Ok(stream) => {
+			let body = stream.try_collect::<web::BytesMut>().await?;
+			let manifest = serde_json::from_slice(body.as_ref())?;
+			return Ok(manifest);
+		},
+		Err(e) => println!("{} not found in repository ({}); pulling from upstream", path, e)
 	}
 
 	let mut upstream = (*upstream.into_inner()).clone();
@@ -67,8 +72,8 @@ async fn get_manifest(req: &ManifestRequest, repo: &Repository, upstream: web::D
 	Ok(manifest)
 }
 
-pub async fn manifest(path: web::Path<ManifestRequest>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
-	let manifest = get_manifest(path.as_ref(), repo.as_ref(), upstream).await?;
+pub async fn manifest(path: web::Path<ManifestRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
+	let manifest = get_manifest(path.as_ref(), invalidation.manifest, repo.as_ref(), upstream).await?;
 	let media_type = manifest.manifest.media_type();
 	let body = serde_json::to_string(&manifest.manifest).unwrap();
 
@@ -80,8 +85,8 @@ pub async fn manifest(path: web::Path<ManifestRequest>, repo: web::Data<Reposito
 	Ok(response.body(body))
 }
 
-pub async fn check_manifest(path: web::Path<ManifestRequest>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
-	let manifest = get_manifest(path.as_ref(), repo.as_ref(), upstream).await?;
+pub async fn check_manifest(path: web::Path<ManifestRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
+	let manifest = get_manifest(path.as_ref(), invalidation.manifest, repo.as_ref(), upstream).await?;
 	let media_type = manifest.manifest.media_type();
 	let body = serde_json::to_string(&manifest).unwrap();
 
@@ -106,15 +111,17 @@ impl BlobRequest {
 	}
 }
 
-pub async fn blob(path: web::Path<BlobRequest>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
+pub async fn blob(path: web::Path<BlobRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
 	if(!path.digest.starts_with("sha256:")) {
 		return Err(Error::InvalidDigest);
 	}
 
 	let req_path = path.path();
-	if let Ok(stream) = (*repo.clone().into_inner()).clone().read(req_path.strip_prefix("/").unwrap()).await {
-		return Ok(HttpResponse::Ok().streaming(stream))
-	}
+	let storage_path = req_path.strip_prefix("/").unwrap();
+	match (*repo.clone().into_inner()).clone().read(storage_path, invalidation.blob).await {
+		Ok(stream) => return Ok(HttpResponse::Ok().streaming(stream)),
+		Err(e) => println!("{} not found in repository ({}); pulling from upstream", storage_path, e)
+	};
 
 	let mut upstream = (*upstream.into_inner()).clone();
 	authenticate_with_upstream(&mut upstream, &format!("repository:{}:pull", path.image.as_ref())).await?;

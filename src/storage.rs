@@ -35,18 +35,10 @@ pub enum Repository {
 }
 
 impl Repository {
-	pub async fn age(&self, object: &str) -> Result<Duration, Error> {
+	pub async fn read(self, object: &str, invalidation: Duration) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, Error> {
 		let result = match self {
-			Self::S3(r) => r.age(object).await?,
-			Self::Filesystem(r) => r.age(object.into()).await?
-		};
-		Ok(result)
-	}
-
-	pub async fn read(self, object: &str) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, Error> {
-		let result = match self {
-			Self::S3(r) => r.read(object).await?,
-			Self::Filesystem(r) => r.read(object.into()).await?
+			Self::S3(r) => r.read(object, invalidation).await?,
+			Self::Filesystem(r) => r.read(object.into(), invalidation).await?
 		};
 		Ok(result)
 	}

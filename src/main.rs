@@ -5,6 +5,7 @@ use actix_web::http::header::HeaderName;
 use actix_web::http::header::HeaderValue;
 use actix_web::web;
 use clap::Parser;
+use humantime::Duration;
 
 mod api;
 mod image;
@@ -18,10 +19,29 @@ use upstream::UpstreamConfig;
 struct Config {
 	#[clap(env, long, default_value_t = 80)]
 	port: u16,
+	#[clap(env, long, default_value = "14d")]
+	manifest_invalidation_time: Duration,
+	#[clap(env, long, default_value = "14d")]
+	blob_invalidation_time: Duration,
 	#[clap(flatten)]
 	upstream: UpstreamConfig,
 	#[clap(subcommand)]
 	storage: StorageConfig,
+}
+
+impl Config {
+	fn invalidation_time(&self) -> InvalidationTime {
+		InvalidationTime{
+			manifest: self.manifest_invalidation_time.into(),
+			blob: self.blob_invalidation_time.into()
+		}
+	}
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct InvalidationTime {
+	manifest: core::time::Duration,
+	blob: core::time::Duration
 }
 
 #[actix_web::main]
@@ -35,10 +55,12 @@ async fn main() {
 
 	let repo = web::Data::new(config.storage.repository());
 	let upstream = web::Data::new(config.upstream.client().unwrap());
+	let invalidation = web::Data::new(config.invalidation_time());
 
 	let server = actix_web::HttpServer::new(move || actix_web::App::new()
 		.app_data(repo.clone())
 		.app_data(upstream.clone())
+		.app_data(invalidation.clone())
 		.wrap(actix_web::middleware::Logger::default())
 		.service(web::scope("/v2")
 			.route("/", web::get().to(api::root))

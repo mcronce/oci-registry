@@ -19,10 +19,7 @@ use rusoto_s3::PutObjectRequest;
 use rusoto_s3::S3;
 use rusoto_s3::S3Client;
 use time::OffsetDateTime;
-use time::format_description::well_known::Rfc3339;
-
-mod error;
-pub use error::GetObjectAge as GetObjectAgeError;
+use time::format_description::well_known::Rfc2822;
 
 #[derive(Clone, Debug, Parser)]
 pub struct S3Config {
@@ -72,14 +69,14 @@ impl Repository {
 		self.inner.get_object(req).await
 	}
 
-	pub async fn age(&self, object: &str) -> Result<Duration, GetObjectAgeError> {
-		let obj = self.get_object(object).await?;
-		let time = OffsetDateTime::parse(&obj.last_modified.unwrap(), &Rfc3339)?;
-		Ok((SystemTime::now() - time).try_into().unwrap_or_default())
-	}
-
-	pub async fn read(self, object: &str) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, RusotoError<GetObjectError>> {
+	pub async fn read(self, object: &str, invalidation: Duration) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, super::Error> {
 		let obj = self.get_object(&object).await?;
+		let time = OffsetDateTime::parse(&obj.last_modified.unwrap(), &Rfc2822)?;
+		let age = Duration::try_from(SystemTime::now() - time).unwrap_or_default();
+		if(age > invalidation) {
+			return Err(super::Error::ObjectTooOld(age.into()));
+		}
+
 		Ok(Box::pin(obj.body.unwrap()))
 	}
 

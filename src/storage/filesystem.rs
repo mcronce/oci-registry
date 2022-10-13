@@ -47,14 +47,15 @@ impl Repository {
 		)
 	}
 
-	pub async fn age(&self, object: &Utf8Path) -> Result<Duration, std::io::Error> {
-		let path = self.full_path(object);
-		let metadata = symlink_metadata(&path).await?;
-		Ok(SystemTime::now().duration_since(metadata.modified()?).unwrap_or_default())
-	}
-
-	pub async fn read(self, object: &Utf8Path) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, std::io::Error> {
+	pub async fn read(self, object: &Utf8Path, invalidation: Duration) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, super::Error> {
 		let path = self.full_path(&object);
+		let age = {
+			let metadata = symlink_metadata(&path).await?;
+			SystemTime::now().duration_since(metadata.modified()?).unwrap_or_default()
+		};
+		if(age > invalidation) {
+			return Err(super::Error::ObjectTooOld(age.into()));
+		}
 		let mut file = BufReader::with_capacity(16384, File::open(path).await?);
 		Ok(Box::pin(try_stream! {
 			loop {

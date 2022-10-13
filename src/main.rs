@@ -7,10 +7,10 @@ use clap::Parser;
 
 mod api;
 mod image;
-mod s3;
+mod storage;
 mod upstream;
 
-use s3::S3Config;
+use storage::StorageConfig;
 use upstream::UpstreamConfig;
 
 #[derive(Debug, Parser)]
@@ -18,9 +18,9 @@ struct Config {
 	#[clap(env, long, default_value_t = 80)]
 	port: u16,
 	#[clap(flatten)]
-	s3: S3Config,
-	#[clap(flatten)]
 	upstream: UpstreamConfig,
+	#[clap(subcommand)]
+	storage: StorageConfig,
 }
 
 #[actix_web::main]
@@ -32,11 +32,11 @@ async fn main() {
 		.compact()
 		.init();
 
-	let s3 = web::Data::new(config.s3.client());
+	let repo = web::Data::new(config.storage.repository());
 	let upstream = web::Data::new(config.upstream.client().unwrap());
 
 	let server = actix_web::HttpServer::new(move || actix_web::App::new()
-		.app_data(s3.clone())
+		.app_data(repo.clone())
 		.app_data(upstream.clone())
 		.wrap(actix_web::middleware::Logger::default())
 		.service(web::scope("/v2")

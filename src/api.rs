@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use actix_web::http;
 use actix_web::web;
-use actix_web::HttpRequest;
 use actix_web::HttpResponse;
 use dkregistry::v2::manifest::Manifest;
 use dkregistry::v2::Client;

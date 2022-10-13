@@ -1,3 +1,4 @@
+#![feature(never_type)]
 #![allow(unused_parens)]
 use actix_web::dev::Service;
 use actix_web::http::header::HeaderName;

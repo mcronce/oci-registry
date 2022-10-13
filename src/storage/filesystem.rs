@@ -71,7 +71,9 @@ impl Repository {
 				if(buf.len() == 0) {
 					break;
 				}
+				let len = buf.len();
 				yield Bytes::copy_from_slice(buf);
+				file.consume(len);
 			}
 		}))
 	}

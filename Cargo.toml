@@ -35,3 +35,8 @@ time = { version = "0.3.15", features = ["parsing"] }
 tokio = { version = "1.21.2", features = ["fs", "io-util"] }
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 
+[patch.crates-io]
+rusoto_core = {git = "https://github.com/mcronce/rusoto.git", branch = "enable-http1"}
+rusoto_credential = {git = "https://github.com/mcronce/rusoto.git", branch = "enable-http1"}
+rusoto_s3 = {git = "https://github.com/mcronce/rusoto.git", branch = "enable-http1"}
+

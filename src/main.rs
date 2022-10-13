@@ -10,14 +10,17 @@ mod image;
 mod s3;
 mod upstream;
 
+use s3::S3Config;
+use upstream::UpstreamConfig;
+
 #[derive(Debug, Parser)]
 struct Config {
 	#[clap(env, long, default_value_t = 80)]
 	port: u16,
 	#[clap(flatten)]
-	s3: s3::Config,
+	s3: S3Config,
 	#[clap(flatten)]
-	upstream: upstream::Config,
+	upstream: UpstreamConfig,
 }
 
 #[actix_web::main]

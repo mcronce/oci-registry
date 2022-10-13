@@ -2,8 +2,7 @@ use clap::Parser;
 use dkregistry::v2::Client;
 
 #[derive(Debug, Parser)]
-#[group(skip)]
-pub struct Config {
+pub struct UpstreamConfig {
 	#[clap(env, long, default_value = "proxy.docker.cronce.io")]
 	upstream_host: String,
 	#[clap(env, long, default_value_t = false)]
@@ -18,7 +17,7 @@ pub struct Config {
 	upstream_password: Option<String>
 }
 
-impl Config {
+impl UpstreamConfig {
 	pub fn client(&self) -> Result<Client, dkregistry::errors::Error> {
 		Client::configure()
 			.registry(&self.upstream_host)

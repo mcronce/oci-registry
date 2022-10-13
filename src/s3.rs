@@ -39,8 +39,7 @@ impl fmt::Display for S3Type {
 }
 
 #[derive(Clone, Debug, Parser)]
-#[group(skip)]
-pub struct Config {
+pub struct S3Config {
 	#[clap(env, long)]
 	s3_host: String,
 	#[clap(env, long)]
@@ -55,7 +54,7 @@ pub struct Config {
 	s3_secure: bool
 }
 
-impl Config {
+impl S3Config {
 	pub fn client(&self) -> S3Pool {
 		let config = CredentialConfig{
 			host: self.s3_host.clone(),

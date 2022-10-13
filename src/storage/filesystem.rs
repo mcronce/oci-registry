@@ -33,7 +33,7 @@ impl FilesystemConfig {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Repository {
 	root: Utf8PathBuf
 }

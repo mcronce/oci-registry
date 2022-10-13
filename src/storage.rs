@@ -26,6 +26,7 @@ impl StorageConfig {
 	}
 }
 
+#[derive(Clone)]
 pub enum Repository {
 	S3(s3::Repository),
 	Filesystem(filesystem::Repository)

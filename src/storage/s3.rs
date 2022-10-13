@@ -57,6 +57,7 @@ impl S3Config {
 	}
 }
 
+#[derive(Clone)]
 pub struct Repository {
 	inner: S3Client,
 	bucket: String

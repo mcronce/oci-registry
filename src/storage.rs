@@ -4,6 +4,8 @@ use actix_web::web::Bytes;
 use clap::Subcommand;
 use futures::stream::TryStream;
 use futures::stream::BoxStream;
+use serde::Deserialize;
+use serde::Serialize;
 
 mod error;
 pub mod filesystem;
@@ -68,6 +70,18 @@ impl Repository {
 			Self::Filesystem(r) => r.write(object.into(), reader).await?
 		};
 		Ok(result)
+	}
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Manifest {
+	pub manifest: dkregistry::v2::manifest::Manifest,
+	pub digest: Option<String>
+}
+
+impl Manifest {
+	pub fn new(manifest: dkregistry::v2::manifest::Manifest, digest: Option<String>) -> Self {
+		Self{manifest, digest}
 	}
 }
 

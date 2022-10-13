@@ -5,8 +5,8 @@ use std::time::SystemTime;
 use actix_web::web::Bytes;
 use clap::Parser;
 use futures::stream::BoxStream;
-use futures::stream::Stream;
-use futures::stream::StreamExt;
+use futures::stream::TryStream;
+use futures::stream::TryStreamExt;
 use rusoto_core::request::HttpClient;
 use rusoto_core::ByteStream;
 use rusoto_core::Region;
@@ -15,7 +15,6 @@ use rusoto_credential::StaticProvider;
 use rusoto_s3::GetObjectError;
 use rusoto_s3::GetObjectOutput;
 use rusoto_s3::GetObjectRequest;
-use rusoto_s3::PutObjectError;
 use rusoto_s3::PutObjectRequest;
 use rusoto_s3::S3;
 use rusoto_s3::S3Client;
@@ -92,11 +91,16 @@ impl Repository {
 		Ok(Box::pin(obj.body.unwrap()))
 	}
 
-	pub async fn write(&self, object: &str, reader: impl Stream<Item = Result<&[u8], std::io::Error>> + Unpin + Send + 'static) -> Result<(), RusotoError<PutObjectError>> {
+	pub async fn write<S, E>(&self, object: &str, reader: S) -> Result<(), super::Error>
+	where
+		S: TryStream<Ok = Bytes, Error = E> + Unpin + Send + 'static,
+		E: std::error::Error + Send + Sync + 'static,
+		super::Error: From<E>
+	{
 		let req = PutObjectRequest{
 			bucket: self.bucket.clone(),
 			key: object.into(),
-			body: Some(ByteStream::new(reader.map(|r| r.map(Bytes::copy_from_slice)))),
+			body: Some(ByteStream::new(reader.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))),
 			..Default::default()
 		};
 		self.inner.put_object(req).await?;

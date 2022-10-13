@@ -2,7 +2,7 @@ use core::time::Duration;
 
 use actix_web::web::Bytes;
 use clap::Subcommand;
-use futures::stream::Stream;
+use futures::stream::TryStream;
 use futures::stream::BoxStream;
 
 mod error;
@@ -57,7 +57,12 @@ impl Repository {
 		Ok(result)
 	}
 
-	pub async fn write(&self, object: &str, reader: impl Stream<Item = Result<&[u8], std::io::Error>> + Unpin + Send + 'static) -> Result<(), Error> {
+	pub async fn write<S, E>(&self, object: &str, reader: S) -> Result<(), Error>
+	where
+		S: TryStream<Ok = Bytes, Error = E> + Unpin + Send + 'static,
+		E: std::error::Error + Send + Sync + 'static,
+		Error: From<E>
+	{
 		let result = match self {
 			Self::S3(r) => r.write(object, reader).await?,
 			Self::Filesystem(r) => r.write(object.into(), reader).await?

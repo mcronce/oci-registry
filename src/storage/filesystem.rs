@@ -8,8 +8,8 @@ use camino::Utf8Path;
 use camino::Utf8PathBuf;
 use clap::Parser;
 use futures::stream::BoxStream;
-use futures::stream::Stream;
-use futures::stream::StreamExt;
+use futures::stream::TryStream;
+use futures::stream::TryStreamExt;
 use tokio::fs::create_dir_all;
 use tokio::fs::symlink_metadata;
 use tokio::fs::File;
@@ -76,19 +76,22 @@ impl Repository {
 		}))
 	}
 
-	pub async fn write(&self, object: &Utf8Path, mut reader: impl Stream<Item = Result<&[u8], std::io::Error>> + Unpin) -> Result<(), std::io::Error> {
+	pub async fn write<S, E>(&self, object: &Utf8Path, mut reader: S) -> Result<(), super::Error>
+	where
+		S: TryStream<Ok = Bytes, Error = E> + Unpin,
+		super::Error: From<E>
+	{
 		let path = self.full_path(object);
 		if let Some(parent) = path.parent() {
 			create_dir_all(parent).await?;
 		}
 		let file = OpenOptions::default().create(true).read(false).write(true).truncate(true).open(&path).await?;
 		let mut file = BufWriter::with_capacity(16384, file);
-		while let Some(buf) = reader.next().await {
-			let buf = buf?;
+		while let Some(buf) = reader.try_next().await? {
 			if(buf.len() == 0) {
 				break;
 			}
-			file.write_all(buf).await?;
+			file.write_all(buf.as_ref()).await?;
 		}
 		file.flush().await?;
 		Ok(())

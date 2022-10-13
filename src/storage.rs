@@ -59,14 +59,14 @@ impl Repository {
 		Ok(result)
 	}
 
-	pub async fn write<S, E>(&self, object: &str, reader: S) -> Result<(), Error>
+	pub async fn write<S, E>(&self, object: &str, reader: S, length: i64) -> Result<(), Error>
 	where
 		S: TryStream<Ok = Bytes, Error = E> + Unpin + Send + 'static,
 		E: std::error::Error + Send + Sync + 'static,
 		Error: From<E>
 	{
 		let result = match self {
-			Self::S3(r) => r.write(object, reader).await?,
+			Self::S3(r) => r.write(object, reader, length).await?,
 			Self::Filesystem(r) => r.write(object.into(), reader).await?
 		};
 		Ok(result)

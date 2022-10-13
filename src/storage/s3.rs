@@ -91,7 +91,7 @@ impl Repository {
 		Ok(Box::pin(obj.body.unwrap()))
 	}
 
-	pub async fn write<S, E>(&self, object: &str, reader: S) -> Result<(), super::Error>
+	pub async fn write<S, E>(&self, object: &str, reader: S, length: i64) -> Result<(), super::Error>
 	where
 		S: TryStream<Ok = Bytes, Error = E> + Unpin + Send + 'static,
 		E: std::error::Error + Send + Sync + 'static,
@@ -100,6 +100,7 @@ impl Repository {
 		let req = PutObjectRequest{
 			bucket: self.bucket.clone(),
 			key: object.into(),
+			content_length: Some(length),
 			body: Some(ByteStream::new(reader.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))),
 			..Default::default()
 		};

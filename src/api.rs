@@ -12,6 +12,8 @@ use futures::stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
 use serde::Deserialize;
+use tracing::error;
+use tracing::warn;
 
 use crate::image::ImageName;
 use crate::image::ImageReference;
@@ -56,7 +58,7 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 			let manifest = serde_json::from_slice(body.as_ref())?;
 			return Ok(manifest);
 		},
-		Err(e) => println!("{} not found in repository ({}); pulling from upstream", path, e)
+		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", path, e)
 	}
 
 	let mut upstream = (*upstream.into_inner()).clone();
@@ -67,7 +69,7 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 	let body = serde_json::to_vec(&manifest).unwrap();
 	let len = body.len().try_into().unwrap_or(i64::MAX);
 	if let Err(e) = repo.write(&path, stream::iter(iter::once(Result::<_, std::io::Error>::Ok(body.into()))), len).await {
-		eprintln!("!!! {}", e);
+		error!("{}", e);
 	}
 	Ok(manifest)
 }
@@ -120,7 +122,7 @@ pub async fn blob(path: web::Path<BlobRequest>, invalidation: web::Data<Invalida
 	let storage_path = req_path.strip_prefix("/").unwrap();
 	match (*repo.clone().into_inner()).clone().read(storage_path, invalidation.blob).await {
 		Ok(stream) => return Ok(HttpResponse::Ok().streaming(stream)),
-		Err(e) => println!("{} not found in repository ({}); pulling from upstream", storage_path, e)
+		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
 	let mut upstream = (*upstream.into_inner()).clone();
@@ -135,7 +137,7 @@ pub async fn blob(path: web::Path<BlobRequest>, invalidation: web::Data<Invalida
 			let mut iter = blob.chunks(16384).map(web::Bytes::copy_from_slice);
 			while let Some(chunk) = iter.next() {
 				if let Err(_) = tx.broadcast(chunk).await {
-					eprintln!("!!! Readers for proxied blob request {} all closed", req_path);
+					error!("Readers for proxied blob request {} all closed", req_path);
 					break;
 				}
 			}
@@ -145,7 +147,7 @@ pub async fn blob(path: web::Path<BlobRequest>, invalidation: web::Data<Invalida
 	let rx2 = rx.clone();
 	rt::spawn(async move {
 		if let Err(e) = repo.write(req_path.strip_prefix("/").unwrap(), rx2.map(Result::<_, std::io::Error>::Ok), len).await {
-			eprintln!("!!! {}", e);
+			error!("{}", e);
 		}
 	});
 

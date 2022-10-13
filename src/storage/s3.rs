@@ -86,8 +86,8 @@ impl Repository {
 		Ok((SystemTime::now() - time).try_into().unwrap_or_default())
 	}
 
-	pub async fn read(&self, object: &str) -> Result<BoxStream<Result<Bytes, std::io::Error>>, RusotoError<GetObjectError>> {
-		let obj = self.get_object(object).await?;
+	pub async fn read(self, object: &str) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, RusotoError<GetObjectError>> {
+		let obj = self.get_object(&object).await?;
 		Ok(Box::pin(obj.body.unwrap()))
 	}
 

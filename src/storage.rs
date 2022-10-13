@@ -48,7 +48,7 @@ impl Repository {
 		Ok(result)
 	}
 
-	pub async fn read(&self, object: &str) -> Result<BoxStream<Result<Bytes, std::io::Error>>, Error> {
+	pub async fn read(self, object: &str) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, Error> {
 		let result = match self {
 			Self::S3(r) => r.read(object).await?,
 			Self::Filesystem(r) => r.read(object.into()).await?

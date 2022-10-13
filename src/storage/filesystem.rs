@@ -62,8 +62,8 @@ impl Repository {
 		Ok(SystemTime::now().duration_since(metadata.modified()?).unwrap_or_default())
 	}
 
-	pub async fn read(&self, object: &Utf8Path) -> Result<BoxStream<Result<Bytes, std::io::Error>>, std::io::Error> {
-		let path = self.full_path(object);
+	pub async fn read(self, object: &Utf8Path) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, std::io::Error> {
+		let path = self.full_path(&object);
 		let mut file = BufReader::with_capacity(16384, File::open(path).await?);
 		Ok(Box::pin(try_stream! {
 			loop {

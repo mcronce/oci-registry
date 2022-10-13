@@ -72,14 +72,6 @@ impl Repository {
 		self.inner.get_object(req).await
 	}
 
-	pub async fn check_if_exists(&self, object: &str) -> Result<bool, RusotoError<GetObjectError>> {
-		match self.get_object(object).await {
-			Ok(_) => Ok(true),
-			Err(RusotoError::Service(GetObjectError::NoSuchKey(_))) => Ok(false),
-			Err(e) => Err(e)
-		}
-	}
-
 	pub async fn age(&self, object: &str) -> Result<Duration, GetObjectAgeError> {
 		let obj = self.get_object(object).await?;
 		let time = OffsetDateTime::parse(&obj.last_modified.unwrap(), &Rfc3339)?;

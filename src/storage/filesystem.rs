@@ -47,15 +47,6 @@ impl Repository {
 		)
 	}
 
-	pub async fn check_if_exists(&self, object: &Utf8Path) -> Result<bool, std::io::Error> {
-		let path = self.full_path(object);
-		match symlink_metadata(&path).await {
-			Ok(metadata) => Ok(metadata.is_file()),
-			Err(e) if(e.kind() == std::io::ErrorKind::NotFound) => Ok(false),
-			Err(e) => Err(e)
-		}
-	}
-
 	pub async fn age(&self, object: &Utf8Path) -> Result<Duration, std::io::Error> {
 		let path = self.full_path(object);
 		let metadata = symlink_metadata(&path).await?;

@@ -35,14 +35,6 @@ pub enum Repository {
 }
 
 impl Repository {
-	pub async fn check_if_exists(&self, object: &str) -> Result<bool, Error> {
-		let result = match self {
-			Self::S3(r) => r.check_if_exists(object).await?,
-			Self::Filesystem(r) => r.check_if_exists(object.into()).await?
-		};
-		Ok(result)
-	}
-
 	pub async fn age(&self, object: &str) -> Result<Duration, Error> {
 		let result = match self {
 			Self::S3(r) => r.age(object).await?,

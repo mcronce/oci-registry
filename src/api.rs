@@ -90,7 +90,7 @@ pub async fn manifest(path: web::Path<ManifestRequest>, invalidation: web::Data<
 pub async fn check_manifest(path: web::Path<ManifestRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
 	let manifest = get_manifest(path.as_ref(), invalidation.manifest, repo.as_ref(), upstream).await?;
 	let media_type = manifest.manifest.media_type();
-	let body = serde_json::to_string(&manifest).unwrap();
+	let body = serde_json::to_string(&manifest.manifest).unwrap();
 
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, media_type.to_string()));

@@ -82,7 +82,7 @@ pub async fn manifest(path: web::Path<ManifestRequest>, invalidation: web::Data<
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, media_type.to_string()));
 	if let Some(digest) = manifest.digest.clone() {
-		response.insert_header(("Docker-Content-Digest", format!("sha256:{}", digest)));
+		response.insert_header(("Docker-Content-Digest", digest));
 	}
 	Ok(response.body(body))
 }

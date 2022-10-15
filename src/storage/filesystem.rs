@@ -21,14 +21,14 @@ use tokio::io::BufWriter;
 
 #[derive(Clone, Debug, Parser)]
 pub struct FilesystemConfig {
-	#[clap(env, long)]
-	filesystem_root: Utf8PathBuf
+	#[clap(env = "FILESYSTEM_ROOT", long)]
+	root: Utf8PathBuf
 }
 
 impl FilesystemConfig {
 	pub fn repository(&self) -> Repository {
 		Repository{
-			root: self.filesystem_root.clone()
+			root: self.root.clone()
 		}
 	}
 }

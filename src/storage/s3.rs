@@ -23,32 +23,32 @@ use time::format_description::well_known::Rfc2822;
 
 #[derive(Clone, Debug, Parser)]
 pub struct S3Config {
-	#[clap(env, long)]
-	s3_host: Option<String>,
-	#[clap(env, long)]
-	s3_access_key: String,
-	#[clap(env, long)]
-	s3_secret_key: String,
-	#[clap(env, long, default_value = "us-east-1")]
-	s3_region: String,
-	#[clap(env, long)]
-	s3_bucket: String
+	#[clap(env = "S3_HOST", long)]
+	host: Option<String>,
+	#[clap(env = "S3_ACCESS_KEY", long)]
+	access_key: String,
+	#[clap(env = "S3_SECRET_KEY", long)]
+	secret_key: String,
+	#[clap(env = "S3_REGION", long, default_value = "us-east-1")]
+	region: String,
+	#[clap(env = "S3_BUCKET", long)]
+	bucket: String
 }
 
 impl S3Config {
 	pub fn repository(&self) -> Repository {
-		let region = match self.s3_host.clone() {
+		let region = match self.host.clone() {
 			Some(s) => Region::Custom{
-				name: self.s3_region.clone(),
+				name: self.region.clone(),
 				endpoint: s.clone()
 			},
-			None => Region::from_str(&self.s3_region).unwrap()
+			None => Region::from_str(&self.region).unwrap()
 		};
-		let creds = StaticProvider::new(self.s3_access_key.clone(), self.s3_secret_key.clone(), None, None);
+		let creds = StaticProvider::new(self.access_key.clone(), self.secret_key.clone(), None, None);
 		let http = HttpClient::new().unwrap();
 		Repository{
 			inner: S3Client::new_with(http, creds, region),
-			bucket: self.s3_bucket.clone()
+			bucket: self.bucket.clone()
 		}
 	}
 }

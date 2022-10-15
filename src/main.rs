@@ -45,6 +45,11 @@ pub struct InvalidationTime {
 	blob: core::time::Duration
 }
 
+async fn health() -> Result<&'static str, api::error::Error> {
+	// TODO:  Check upstream and storage
+	Ok("")
+}
+
 #[actix_web::main]
 async fn main() {
 	let config = Config::parse();
@@ -65,6 +70,7 @@ async fn main() {
 		.app_data(invalidation.clone())
 		.app_data(default_namespace.clone())
 		.wrap(actix_web::middleware::Logger::default())
+		.route("/health", web::get().to(health))
 		.service(web::scope("/v2")
 			.route("/", web::get().to(api::root))
 			// /v2/library/telegraf/manifests/1.24-alpine

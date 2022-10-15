@@ -8,6 +8,8 @@ debug = 1
 
 [profile.release]
 debug = 1
+strip = "symbols"
+lto = "fat"
 
 [dependencies]
 actix-web = "4.2.1"

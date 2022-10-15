@@ -78,8 +78,8 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 	Ok(manifest)
 }
 
-pub async fn manifest(path: web::Path<ManifestRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
-	let manifest = get_manifest(path.as_ref(), invalidation.manifest, repo.as_ref(), upstream).await?;
+pub async fn manifest(req: web::Path<ManifestRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
+	let manifest = get_manifest(req.as_ref(), invalidation.manifest, repo.as_ref(), upstream).await?;
 
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, manifest.media_type.to_string()));
@@ -108,21 +108,21 @@ impl BlobRequest {
 	}
 }
 
-pub async fn blob(path: web::Path<BlobRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
-	if(!path.digest.starts_with("sha256:")) {
+pub async fn blob(req: web::Path<BlobRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
+	if(!req.digest.starts_with("sha256:")) {
 		return Err(Error::InvalidDigest);
 	}
 
-	let req_path = path.http_path();
-	let storage_path = path.storage_path();
+	let req_path = req.http_path();
+	let storage_path = req.storage_path();
 	match (*repo.clone().into_inner()).clone().read(storage_path.as_ref(), invalidation.blob).await {
 		Ok(stream) => return Ok(HttpResponse::Ok().streaming(stream)),
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
 	let mut upstream = (*upstream.into_inner()).clone();
-	authenticate_with_upstream(&mut upstream, &format!("repository:{}:pull", path.image.as_ref())).await?;
-	let response = upstream.get_blob_response(path.image.as_ref(), path.digest.as_ref()).await?;
+	authenticate_with_upstream(&mut upstream, &format!("repository:{}:pull", req.image.as_ref())).await?;
+	let response = upstream.get_blob_response(req.image.as_ref(), req.digest.as_ref()).await?;
 
 	let len = response.size().unwrap_or_default();
 	let (tx, rx) = async_broadcast::broadcast(16);

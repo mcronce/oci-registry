@@ -42,6 +42,7 @@ tokio = { version = "1.21.2", features = ["fs", "io-util"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
 
+# TODO:  Once https://github.com/rusoto/rusoto/pull/1981 is merged, remove these.
 [patch.crates-io]
 rusoto_core = {git = "https://github.com/mcronce/rusoto.git", branch = "enable-http1"}
 rusoto_credential = {git = "https://github.com/mcronce/rusoto.git", branch = "enable-http1"}

@@ -1,0 +1,9 @@
+#!/bin/bash -ex
+if [ "${RUSTC_WRAPPER}" == '/sccache' ]; then
+	mkdir /sccache-dl
+	curl -Ls "$(curl -s https://api.github.com/repos/mozilla/sccache/releases/latest | grep 'browser_download_url.*sccache-v.*x86_64.*musl.tar.gz"' | cut -d: -f2- | sed -e 's/^ "//' -e 's/"$//')" | tar -C /sccache-dl -zxvf -
+	mv -vf /sccache-dl/*/sccache /sccache
+	chmod 755 /sccache
+	rm -Rvf /sccache-dl
+fi
+

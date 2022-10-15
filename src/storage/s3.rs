@@ -22,7 +22,7 @@ use time::OffsetDateTime;
 use time::format_description::well_known::Rfc2822;
 
 #[derive(Clone, Debug, Parser)]
-pub struct S3Config {
+pub struct Config {
 	#[clap(env = "S3_HOST", long)]
 	host: Option<String>,
 	#[clap(env = "S3_ACCESS_KEY", long)]
@@ -35,7 +35,7 @@ pub struct S3Config {
 	bucket: String
 }
 
-impl S3Config {
+impl Config {
 	pub fn repository(&self) -> Repository {
 		let region = match self.host.clone() {
 			Some(s) => Region::Custom{

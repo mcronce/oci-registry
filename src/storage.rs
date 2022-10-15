@@ -16,8 +16,8 @@ pub use error::Error;
 
 #[derive(Clone, Debug, Subcommand)]
 pub enum StorageConfig {
-	S3(s3::S3Config),
-	Filesystem(filesystem::FilesystemConfig)
+	S3(s3::Config),
+	Filesystem(filesystem::Config)
 }
 
 impl StorageConfig {

@@ -13,7 +13,7 @@ variables:
   DOCKER_HOST: tcp://localhost:2375
   DOCKER_TLS_CERTDIR: ""
   RUSTC_WRAPPER: /sccache
-  SCCACHE_ENDPOINT: virt_mon.storage.home.quadra-tec.net:7480
+  SCCACHE_ENDPOINT: rgw.storage.home.quadra-tec.net:7480
   SCCACHE_S3_USE_SSL: "off"
   SCCACHE_BUCKET: gitlab-sccache
 

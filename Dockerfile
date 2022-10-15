@@ -29,7 +29,6 @@ COPY src /repo/src
 RUN \
 	touch src/main.rs && \
 	cargo build --release && \
-	cat /repo/target/*/build/oci-registry*/output && \
 	bash -exc "if [ '${RUSTC_WRAPPER}' == '/sccache' ]; then /sccache -s; fi"
 
 RUN strip target/release/oci-registry

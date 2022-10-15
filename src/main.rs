@@ -22,6 +22,8 @@ struct Config {
 	manifest_invalidation_time: Duration,
 	#[clap(env, long, default_value = "14d")]
 	blob_invalidation_time: Duration,
+	#[clap(env, long, default_value = "docker.io")]
+	default_namespace: String,
 	#[clap(flatten)]
 	upstream: UpstreamConfig,
 	#[clap(subcommand)]
@@ -55,11 +57,13 @@ async fn main() {
 	let repo = web::Data::new(config.storage.repository());
 	let upstream = web::Data::new(config.upstream.client().unwrap());
 	let invalidation = web::Data::new(config.invalidation_time());
+	let default_namespace = web::Data::new(config.default_namespace);
 
 	let server = actix_web::HttpServer::new(move || actix_web::App::new()
 		.app_data(repo.clone())
 		.app_data(upstream.clone())
 		.app_data(invalidation.clone())
+		.app_data(default_namespace.clone())
 		.wrap(actix_web::middleware::Logger::default())
 		.service(web::scope("/v2")
 			.route("/", web::get().to(api::root))

@@ -49,13 +49,18 @@ impl ManifestRequest {
 		format!("/{}/manifests/{}", self.image, self.reference)
 	}
 
-	fn storage_path(&self) -> String {
-		format!("manifests/{}/{}", self.image, self.reference)
+	fn storage_path(&self, ns: &str) -> String {
+		format!("manifests/{}/{}/{}", ns, self.image, self.reference)
 	}
 }
 
-async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repository, upstream: web::Data<Client>) -> Result<Manifest, Error> {
-	let storage_path = req.storage_path();
+#[derive(Debug, Deserialize)]
+pub struct ManifestQueryString {
+	ns: Option<String>
+}
+
+async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repository, upstream: web::Data<Client>, namespace: &str) -> Result<Manifest, Error> {
+	let storage_path = req.storage_path(namespace);
 	match repo.clone().read(&storage_path, max_age).await {
 		Ok(stream) => {
 			let body = stream.try_collect::<web::BytesMut>().await?;
@@ -78,8 +83,8 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 	Ok(manifest)
 }
 
-pub async fn manifest(req: web::Path<ManifestRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
-	let manifest = get_manifest(req.as_ref(), invalidation.manifest, repo.as_ref(), upstream).await?;
+pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>, default_ns: web::Data<String>) -> Result<HttpResponse, Error> {
+	let manifest = get_manifest(req.as_ref(), invalidation.manifest, repo.as_ref(), upstream, qstr.ns.as_ref().unwrap_or(default_ns.as_ref())).await?;
 
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, manifest.media_type.to_string()));

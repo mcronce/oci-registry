@@ -1,0 +1,122 @@
+stages:
+  - build
+  - deploy
+  - cleanup
+
+services:
+  - name: docker:dind
+    command: ["--tls=false"]
+
+variables:
+  CARGO_INCREMENTAL: "0"
+  DOCKER_DRIVER: overlay2
+  DOCKER_HOST: tcp://localhost:2375
+  DOCKER_TLS_CERTDIR: ""
+  RUSTC_WRAPPER: /sccache
+  SCCACHE_ENDPOINT: 192.168.1.202:7480
+  SCCACHE_S3_USE_SSL: "off"
+  SCCACHE_BUCKET: gitlab-sccache
+
+cargo build and cargo test:
+  stage: build
+  image: rust
+  cache:
+    - key: rust
+      paths:
+        - .cargo
+  before_script:
+    - tools/maybe-download-sccache
+    - apt-get update
+    - apt-get install -y cmake
+    - |
+      if [ -d .cargo ]; then
+        rm -Rf /usr/local/cargo/registry
+        time mv -f .cargo/registry /usr/local/cargo/
+      fi
+    - rustup component add clippy
+  script:
+    - cargo update
+    - cargo check
+    - cargo clippy --no-deps -- -D warnings
+    - cargo test
+    - cargo build
+  after_script:
+    - if [ ! -d .cargo ]; then mkdir .cargo; fi
+    - time mv -f /usr/local/cargo/registry .cargo/
+    - /sccache -s
+
+Build container image:
+  stage: build
+  image: docker:20-git
+  cache:
+    - key: docker
+      policy: push
+      paths:
+        - images
+  before_script:
+    - docker version
+    - apk add -U bash coreutils
+    - bash -ec 'find Cargo.toml src ui -type f | while read file; do revision="$(git rev-list -n 1 HEAD "${file}")"; timestamp="$(git show --pretty=format:%ai --abbrev-commit "${revision}" | head -n1)"; touch -d "${timestamp}" "${file}"; done'
+  script:
+    - |
+      BUILD_ARGS="--build-arg=CARGO_INCREMENTAL --build-arg=RUSTC_WRAPPER --build-arg=SCCACHE_ENDPOINT --build-arg=SCCACHE_BUCKET --build-arg=AWS_ACCESS_KEY_ID --build-arg=AWS_SECRET_ACCESS_KEY"
+      docker build $BUILD_ARGS --cache-from "mcronce/oci-registry-builder" --target=builder -t "mcronce/oci-registry-builder" .
+      docker build $BUILD_ARGS --cache-from "mcronce/oci-registry-builder" --cache-from "mcronce/oci-registry" -t "mcronce/oci-registry" .
+    - mkdir -pv images
+    - time docker save "mcronce/oci-registry" | gzip > images/release.tar.gz
+  after_script:
+    - docker rmi -f "mcronce/oci-registry-builder"
+    - docker rmi -f "mcronce/oci-registry"
+
+Lint chart:
+  stage: build
+  image: alpine/helm:latest
+  script:
+    - helm lint ./dist/helm
+
+Push container image:
+  stage: deploy
+  image: docker:20-git
+  cache:
+    - key: docker
+      policy: pull
+      paths:
+        - images/release.tar
+  before_script:
+    - docker version
+    - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+    - zcat images/release.tar.gz | docker load
+  script:
+    - docker tag "mcronce/oci-registry" "mcronce/oci-registry:${CI_COMMIT_TAG:-latest}"
+    - docker push "mcronce/oci-registry:${CI_COMMIT_TAG:-latest}"
+  after_script:
+    - docker rmi -f "mcronce/oci-registry" "mcronce/oci-registry:${CI_COMMIT_TAG:-latest}"
+  only:
+    - master
+    - tags
+
+Push chart:
+  stage: deploy
+  image: alpine/helm:latest
+  before_script:
+    - apk add -U git
+    - helm plugin install https://github.com/chartmuseum/helm-push.git
+  script:
+    - helm cm-push ./dist/helm https://charts.cronce.io
+  only:
+    - tags
+
+cargo cache cleanup:
+  stage: cleanup
+  image: mcronce/cargo-cache
+  variables:
+    RUSTC_WRAPPER: ""
+  cache:
+    - key: rust
+      paths:
+        - .cargo
+  before_script: []
+  script:
+    - CARGO_HOME=.cargo cargo cache clean-unref
+  after_script: []
+

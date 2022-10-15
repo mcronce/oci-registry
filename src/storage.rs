@@ -1,7 +1,8 @@
 use core::time::Duration;
 
-use actix_web::web::Bytes;
+use bytes::Bytes;
 use clap::Subcommand;
+use dkregistry::mediatypes::MediaTypes;
 use futures::stream::TryStream;
 use futures::stream::BoxStream;
 use serde::Deserialize;
@@ -59,13 +60,14 @@ impl Repository {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Manifest {
-	pub manifest: dkregistry::v2::manifest::Manifest,
+	pub manifest: Bytes,
+	pub media_type: MediaTypes,
 	pub digest: Option<String>
 }
 
 impl Manifest {
-	pub fn new(manifest: dkregistry::v2::manifest::Manifest, digest: Option<String>) -> Self {
-		Self{manifest, digest}
+	pub fn new(manifest: Bytes, media_type: MediaTypes, digest: Option<String>) -> Self {
+		Self{manifest, media_type, digest}
 	}
 }
 

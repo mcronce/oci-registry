@@ -63,8 +63,8 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 
 	let mut upstream = (*upstream.into_inner()).clone();
 	authenticate_with_upstream(&mut upstream, &format!("repository:{}:pull", req.image.as_ref())).await?;
-	let (manifest, digest) = upstream.get_manifest_and_ref(req.image.as_ref(), &req.reference.to_string()).await?;
-	let manifest = Manifest::new(manifest, digest);
+	let (manifest, media_type, digest) = upstream.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string()).await?;
+	let manifest = Manifest::new(manifest, media_type, digest);
 
 	let body = serde_json::to_vec(&manifest).unwrap();
 	let len = body.len().try_into().unwrap_or(i64::MAX);
@@ -76,15 +76,13 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 
 pub async fn manifest(path: web::Path<ManifestRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
 	let manifest = get_manifest(path.as_ref(), invalidation.manifest, repo.as_ref(), upstream).await?;
-	let media_type = manifest.manifest.media_type();
-	let body = serde_json::to_string(&manifest.manifest).unwrap();
 
 	let mut response = HttpResponse::Ok();
-	response.insert_header((http::header::CONTENT_TYPE, media_type.to_string()));
+	response.insert_header((http::header::CONTENT_TYPE, manifest.media_type.to_string()));
 	if let Some(digest) = manifest.digest.clone() {
 		response.insert_header(("Docker-Content-Digest", digest));
 	}
-	Ok(response.body(body))
+	Ok(response.body(manifest.manifest))
 }
 
 #[derive(Debug, Deserialize)]

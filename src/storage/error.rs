@@ -1,3 +1,4 @@
+use arcerror::ArcError;
 use rusoto_core::RusotoError;
 
 #[derive(Debug, thiserror::Error)]
@@ -11,6 +12,8 @@ pub enum Error {
 	#[error("Failed to parse datetime: {0}")]
 	ParseTime(#[from] time::error::Parse),
 	#[error("Object too old: {0}")]
-	ObjectTooOld(humantime::Duration)
+	ObjectTooOld(humantime::Duration),
+	#[error("Error reading from upstream: {0}")]
+	Upstream(#[from] ArcError<dkregistry::errors::Error>)
 }
 

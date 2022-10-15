@@ -11,6 +11,7 @@ debug = 1
 
 [dependencies]
 actix-web = "4.2.1"
+arcerror = "0.1.0"
 arcstr = "1.1.4"
 async-broadcast = "0.4.1"
 async-stream = "0.3.3"

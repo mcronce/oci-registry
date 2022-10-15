@@ -6,6 +6,7 @@ use actix_web::http;
 use actix_web::rt;
 use actix_web::web;
 use actix_web::HttpResponse;
+use arcerror::ArcError;
 use arcstr::ArcStr;
 use dkregistry::v2::Client;
 use futures::stream;
@@ -111,15 +112,22 @@ pub async fn blob(path: web::Path<BlobRequest>, invalidation: web::Data<Invalida
 
 	let mut upstream = (*upstream.into_inner()).clone();
 	authenticate_with_upstream(&mut upstream, &format!("repository:{}:pull", path.image.as_ref())).await?;
-	let blob = upstream.get_blob(path.image.as_ref(), path.digest.as_ref()).await?;
+	let response = upstream.get_blob_response(path.image.as_ref(), path.digest.as_ref()).await?;
 
-	let len = blob.len().try_into().unwrap_or(i64::MAX);
+	let len = response.size().unwrap_or_default();
 	let (tx, rx) = async_broadcast::broadcast(16);
 	{
 		let req_path = req_path.clone();
+		let mut stream = response.stream();
 		rt::spawn(async move {
-			let mut iter = blob.chunks(16384).map(web::Bytes::copy_from_slice);
-			while let Some(chunk) = iter.next() {
+			while let Some(chunk) = stream.next().await {
+				let chunk = match chunk {
+					Ok(v) => Ok(v),
+					Err(e) => {
+						error!("Error reading from upstream:  {}", e);
+						Err(ArcError::from(e))
+					}
+				};
 				if let Err(_) = tx.broadcast(chunk).await {
 					error!("Readers for proxied blob request {} all closed", req_path);
 					break;
@@ -130,11 +138,11 @@ pub async fn blob(path: web::Path<BlobRequest>, invalidation: web::Data<Invalida
 
 	let rx2 = rx.clone();
 	rt::spawn(async move {
-		if let Err(e) = repo.write(req_path.strip_prefix("/").unwrap(), rx2.map(Result::<_, std::io::Error>::Ok), len).await {
+		if let Err(e) = repo.write(req_path.strip_prefix("/").unwrap(), rx2, len.try_into().unwrap_or(i64::MAX)).await {
 			error!("{}", e);
 		}
 	});
 
-	Ok(HttpResponse::Ok().streaming::<_, !>(rx.map(Ok)))
+	Ok(HttpResponse::Ok().streaming(rx))
 }
 

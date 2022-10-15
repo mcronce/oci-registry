@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name:  {{ template "oci-registry.fullname" . }}
+  labels:
+    {{- include "oci-registry.labels" . | nindent 4 }}
+    helm.sh/chart: {{ template "oci-registry.chart" . }}
+spec:
+  replicas: {{ .Values.replicas}}
+  selector:
+    matchLabels:
+      {{- include "oci-registry.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "oci-registry.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: oci-registry
+          image: "{{ .Values.image.registry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if eq .Values.registry.storage.mode "s3" }}
+          args: ["s3"]
+          env:
+            - name: S3_HOST
+              value: {{ .Values.registry.storage.s3.host | quote }}
+            - name: S3_REGION
+              value: {{ .Values.registry.storage.s3.region | quote }}
+            - name: S3_BUCKET
+              value: {{ .Values.registry.storage.s3.bucket | quote }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "oci-registry.s3_secret_name" . }}
+                  key: access_key
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "oci-registry.s3_secret_name" . }}
+                  key: secret_key
+          {{- else if eq .Values.registry.storage.mode "filesystem" }}
+          args: ["filesystem"]
+          env:
+            - name: FILESYSTEM_ROOT
+              value: /data
+          {{- else }}
+          {{- fail "registry.storage.mode must be either 's3' or 'filesystem'" -}}
+          {{- end }}
+            - name: MANIFEST_INVALIDATION_TIME
+              value: {{ .Values.registry.invalidation_time.manifests | quote }}
+            - name: BLOB_INVALIDATION_TIME
+              value: {{ .Values.registry.invalidation_time.blobs | quote }}
+            - name: UPSTREAM_HOST
+              value: {{ .Values.registry.upstream.host | quote }}
+            - name: UPSTREAM_TLS
+              value: {{ .Values.registry.upstream.tls.enabled | quote }}
+            - name: UPSTREAM_INSECURE_TLS
+              value: {{ .Values.registry.upstream.tls.accept_invalid_certs | quote }}
+            - name: UPSTREAM_USER_AGENT
+              value: {{ .Values.registry.upstream.user_agent | quote }}
+            - name: UPSTREAM_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "oci-registry.upstream_secret_name" . }}
+                  key: username
+            - name: UPSTREAM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "oci-registry.upstream_secret_name" . }}
+                  key: password
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 1
+            periodSeconds: 2
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      tolerations:
+        {{- toYaml .Values.tolerations | nindent 8 }}
+

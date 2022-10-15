@@ -1,0 +1,64 @@
+{{- if .Values.ingress.enabled -}} 
+{{- $fullName := include "oci-registry.fullname" . -}}
+{{- $servicePort := .Values.service.port -}} 
+{{- $ingressPath := .Values.ingress.path -}} 
+{{- $new := false }}
+{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1" -}}
+apiVersion: networking.k8s.io/v1
+{{- $new = true }}
+{{- else }}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "oci-registry.labels" . | nindent 4 }}
+  annotations:
+    {{- if not $new }}
+    kubernetes.io/ingress.class: {{ required "If ingress.enabled is set to true, ingress.class is required" .Values.ingress.class | quote }}
+    {{- end }}
+    {{- if .Values.ingress.annotations }}
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if $new }}
+  ingressClassName: {{ required "If ingress.enabled is set to true, ingress.class is required" .Values.ingress.class | quote }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+      {{- range .hosts }}
+        - {{ . }}
+      {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if $new }}
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . }}
+      http:
+        paths:
+          - path: {{ $ingressPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $servicePort }}
+    {{- end }}
+    {{- else }}
+    {{- range .Values.ingress.hosts }}
+    - host: {{ . }}
+      http:
+        paths:
+          - path: {{ $ingressPath }}
+            backend:
+              serviceName: {{ $fullName }}
+              servicePort: {{ $servicePort }}
+    {{- end }}
+    {{- end }}
+{{- end }}
+

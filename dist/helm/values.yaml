@@ -1,0 +1,70 @@
+image:
+  registry: mcronce
+  name: oci-registry
+  tag: v0.1.0
+  pullPolicy: IfNotPresent
+  pullSecret:
+
+replicas: 2
+
+registry:
+  upstream:
+    host: registry-1.docker.io
+    tls:
+      enabled: true
+      accept_invalid_certs: false
+    user_agent:
+    auth_secret:
+      name_override:
+      deploy: true
+      username:
+      password:
+  storage:
+    mode: filesystem
+    filesystem:
+      path: /data
+    s3:
+      # Leave blank to use AWS
+      host:
+      auth_secret:
+        name_override:
+        deploy: true
+        access_key:
+        secret_key:
+      region: us-east-1
+      bucket: oci-registry
+  invalidation_time:
+    manifests: 14d
+    blobs: 14d
+
+service:
+  port: 80
+  type: ClusterIP
+  clusterIP:
+  annotations: {}
+  externalIPs: []
+  loadBalancerIP: ""
+  loadBalancerSourceRanges: []
+
+extraLabels: {}
+
+ingress:
+  enabled: false
+  class:
+  annotations: {}
+  path: /
+  hosts:
+    - oci-registry
+  tls: []
+  #  - secretName: oci-registry-tls
+  #    hosts:
+  #      oci-registry
+
+resources:
+  requests:
+    cpu: 1
+    memory: 32Mi
+  limits:
+    cpu: 2
+    memory: 64Mi
+

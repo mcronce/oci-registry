@@ -40,7 +40,7 @@ impl Config {
 		let region = match self.host.clone() {
 			Some(s) => Region::Custom{
 				name: self.region.clone(),
-				endpoint: s.clone()
+				endpoint: s
 			},
 			None => Region::from_str(&self.region).unwrap()
 		};
@@ -70,7 +70,7 @@ impl Repository {
 	}
 
 	pub async fn read(self, object: &str, invalidation: Duration) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, super::Error> {
-		let obj = self.get_object(&object).await?;
+		let obj = self.get_object(object).await?;
 		let time = OffsetDateTime::parse(&obj.last_modified.unwrap(), &Rfc2822)?;
 		let age = Duration::try_from(SystemTime::now() - time).unwrap_or_default();
 		if(age > invalidation) {

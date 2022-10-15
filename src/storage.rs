@@ -50,6 +50,7 @@ impl Repository {
 		E: std::error::Error + Send + Sync + 'static,
 		Error: From<E>
 	{
+		#[allow(clippy::let_unit_value)] // Because it's likely that we will change the return type eventually, it'll require fewer changes, and it's harmless as-is.
 		let result = match self {
 			Self::S3(r) => r.write(object, reader, length).await?,
 			Self::Filesystem(r) => r.write(object.into(), reader).await?

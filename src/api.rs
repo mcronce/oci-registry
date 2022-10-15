@@ -103,7 +103,7 @@ impl BlobRequest {
 	fn storage_path(&self) -> ArcStr {
 		let (method, hash) = self.digest.split_once(':').unwrap_or(("_", &self.digest));
 		let hash_prefix = hash.get(..2).unwrap_or("_");
-		let rest_of_hash = hash.get(2..).unwrap_or(&hash);
+		let rest_of_hash = hash.get(2..).unwrap_or(hash);
 		format!("blobs/{}/{}/{}", method, hash_prefix, rest_of_hash).into()
 	}
 }
@@ -137,7 +137,7 @@ pub async fn blob(path: web::Path<BlobRequest>, invalidation: web::Data<Invalida
 						Err(ArcError::from(e))
 					}
 				};
-				if let Err(_) = tx.broadcast(chunk).await {
+				if(tx.broadcast(chunk).await.is_err()) {
 					error!("Readers for proxied blob request {} all closed", req_path);
 					break;
 				}

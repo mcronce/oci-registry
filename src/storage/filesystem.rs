@@ -48,7 +48,7 @@ impl Repository {
 	}
 
 	pub async fn read(self, object: &Utf8Path, invalidation: Duration) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, super::Error> {
-		let path = self.full_path(&object);
+		let path = self.full_path(object);
 		let age = {
 			let metadata = symlink_metadata(&path).await?;
 			SystemTime::now().duration_since(metadata.modified()?).unwrap_or_default()
@@ -82,7 +82,7 @@ impl Repository {
 		let file = OpenOptions::default().create(true).read(false).write(true).truncate(true).open(&path).await?;
 		let mut file = BufWriter::with_capacity(16384, file);
 		while let Some(buf) = reader.try_next().await? {
-			if(buf.len() == 0) {
+			if(buf.is_empty()) {
 				break;
 			}
 			file.write_all(buf.as_ref()).await?;

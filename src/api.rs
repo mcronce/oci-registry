@@ -22,7 +22,7 @@ use crate::storage::Manifest;
 use crate::storage::Repository;
 use crate::InvalidationTime;
 
-mod error;
+pub mod error;
 use error::Error;
 
 async fn authenticate_with_upstream(upstream: &mut Client, scope: &str) -> Result<(), dkregistry::errors::Error> {

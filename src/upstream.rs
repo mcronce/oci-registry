@@ -10,16 +10,16 @@ use tracing::info;
 
 pub struct Clients(HashMap<String, Client>);
 impl Clients {
-	pub fn get(&mut self, key: &Option<String>) -> Result<Client, Error> {
+	pub fn get(&mut self, key: Option<&str>) -> Result<Client, Error> {
 		match key {
 			Some(key) => match self.0.get(key) {
 				Some(v) => Ok(v.clone()),
 				None => {
-					self.insert(key.clone(), SingleUpstreamConfig::new(key, key))?;
+					self.insert(key.to_string(), SingleUpstreamConfig::new(key, key))?;
 					Ok(self.0.get(key).unwrap().clone())
 				}
 			},
-			None => self.get(&Some("".into()))
+			None => self.get(Some(""))
 		}
 	}
 
@@ -125,7 +125,7 @@ impl UpstreamConfig {
 				Clients(map)
 			}
 		};
-		let default_client = clients.get(&Some(self.default_upstream_namespace.clone()))?;
+		let default_client = clients.get(Some(&self.default_upstream_namespace))?;
 		clients.0.insert("".into(), default_client);
 		Ok(clients)
 	}

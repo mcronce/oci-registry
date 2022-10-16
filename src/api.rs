@@ -32,7 +32,7 @@ async fn authenticate_with_upstream(upstream: &mut Client, scope: &str) -> Resul
 }
 
 pub async fn root(upstream: web::Data<Mutex<Clients>>, qstr: web::Query<ManifestQueryString>) -> Result<&'static str, Error> {
-	upstream.lock().await.get(&qstr.ns)?.authenticate(&[]).await?;
+	upstream.lock().await.get(qstr.ns.as_deref())?.authenticate(&[]).await?;
 	Ok("")
 }
 
@@ -81,7 +81,7 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 }
 
 pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>, default_ns: web::Data<String>) -> Result<HttpResponse, Error> {
-	let mut upstream = upstream.lock().await.get(&qstr.ns)?;
+	let mut upstream = upstream.lock().await.get(qstr.ns.as_deref())?;
 	let manifest = get_manifest(req.as_ref(), invalidation.manifest, repo.as_ref(), &mut upstream, qstr.ns.as_ref().unwrap_or_else(|| default_ns.as_ref())).await?;
 
 	let mut response = HttpResponse::Ok();
@@ -123,7 +123,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
-	let mut upstream = upstream.lock().await.get(&qstr.ns)?;
+	let mut upstream = upstream.lock().await.get(qstr.ns.as_deref())?;
 	authenticate_with_upstream(&mut upstream, &format!("repository:{}:pull", req.image.as_ref())).await?;
 	let response = upstream.get_blob_response(req.image.as_ref(), req.digest.as_ref()).await?;
 

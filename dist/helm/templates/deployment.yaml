@@ -58,6 +58,7 @@ spec:
               value: {{ .Values.registry.upstream.tls.accept_invalid_certs | quote }}
             - name: UPSTREAM_USER_AGENT
               value: {{ .Values.registry.upstream.user_agent | quote }}
+            {{- if .Values.registry.upstream.auth_secret.enabled }}
             - name: UPSTREAM_USERNAME
               valueFrom:
                 secretKeyRef:
@@ -68,6 +69,7 @@ spec:
                 secretKeyRef:
                   name: {{ template "oci-registry.upstream_secret_name" . }}
                   key: password
+            {{- end }}
           ports:
             - name: http
               containerPort: 80

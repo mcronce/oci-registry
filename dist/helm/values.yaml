@@ -15,8 +15,9 @@ registry:
       accept_invalid_certs: false
     user_agent:
     auth_secret:
+      enabled: false
       name_override:
-      deploy: true
+      deploy: false
       username:
       password:
   storage:

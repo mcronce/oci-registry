@@ -74,7 +74,6 @@ impl SingleUpstreamConfig {
 impl TryFrom<SingleUpstreamConfig> for Client {
 	type Error = Error;
 	fn try_from(config: SingleUpstreamConfig) -> Result<Self, Self::Error> {
-		info!("Parsed upstream config: {:?}", config);
 		Self::configure()
 			.registry(&config.host)
 			.insecure_registry(!config.tls)
@@ -108,6 +107,10 @@ impl UpstreamConfig {
 				let upstream_config: Vec<SingleUpstreamConfig> = serde_yaml::from_str(&upstream_config).unwrap();
 				let upstream_config = upstream_config
 					.into_iter()
+					.map(|conf| {
+						info!("Parsed upstream config: {:?}", conf);
+						conf
+					})
 					.map(|conf| Ok::<_, Error>((conf.namespace.clone(), conf.try_into()?)))
 					.collect::<Result<Vec<_>, _>>()?;
 				upstream_config.into_iter().collect()

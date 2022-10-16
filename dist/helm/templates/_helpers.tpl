@@ -47,7 +47,7 @@ helm.sh/chart: {{ template "oci-registry.chart" . }}
 {{- end -}}
 
 {{- define "oci-registry.upstream_secret_name" -}}
-	{{- default (printf "%s-%s" (include "oci-registry.fullname" .) "upstream") .Values.registry.upstream.auth_secret.name_override | quote }}
+	{{- default (printf "%s-%s" (include "oci-registry.fullname" .) "upstream") .Values.registry.upstream.config.name_override | quote }}
 {{- end -}}
 
 {{- define "oci-registry.s3_secret_name" -}}

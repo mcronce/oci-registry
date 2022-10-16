@@ -50,29 +50,15 @@ spec:
               value: {{ .Values.registry.invalidation_time.manifests | quote }}
             - name: BLOB_INVALIDATION_TIME
               value: {{ .Values.registry.invalidation_time.blobs | quote }}
-            - name: UPSTREAM_HOST
-              value: {{ .Values.registry.upstream.host | quote }}
-            - name: UPSTREAM_TLS
-              value: {{ .Values.registry.upstream.tls.enabled | quote }}
-            - name: UPSTREAM_INSECURE_TLS
-              value: {{ .Values.registry.upstream.tls.accept_invalid_certs | quote }}
-            - name: UPSTREAM_USER_AGENT
-              value: {{ .Values.registry.upstream.user_agent | quote }}
-            {{- if .Values.registry.upstream.auth_secret.enabled }}
-            - name: UPSTREAM_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: {{ template "oci-registry.upstream_secret_name" . }}
-                  key: username
-            - name: UPSTREAM_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ template "oci-registry.upstream_secret_name" . }}
-                  key: password
-            {{- end }}
+            - name: DEFAULT_UPSTREAM_NAMESPACE
+              value: {{ .Values.registry.upstream.default_namespace | quote }}
           ports:
             - name: http
               containerPort: 80
+          volumeMounts:
+            - mountPath: /upstream.yaml
+              name: upstream
+              subPath: upstream.yaml
           readinessProbe:
             httpGet:
               path: /health
@@ -89,6 +75,10 @@ spec:
             failureThreshold: 5
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: upstream
+          secret:
+            secretName: {{ template "oci-registry.upstream_secret_name" . }}
       nodeSelector:
         {{- toYaml .Values.nodeSelector | nindent 8 }}
       affinity:

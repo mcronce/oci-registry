@@ -9,17 +9,22 @@ replicas: 2
 
 registry:
   upstream:
-    host: registry-1.docker.io
-    tls:
-      enabled: true
-      accept_invalid_certs: false
-    user_agent:
-    auth_secret:
-      enabled: false
+    config:
+      deploy: true
       name_override:
-      deploy: false
-      username:
-      password:
+      contents: []
+        #- namespace: docker.io
+        #  host: registry-1.docker.io
+        #  tls: true
+        #  accept_invalid_certs: false
+        #  user_agent: null
+        #  username: null
+        #  password: null
+        #- namespace: quay.io
+        #  host: quay.io
+        #- namespace: gcr.io
+        #  host: gcr.io
+    default_namespace: docker.io
   storage:
     mode: filesystem
     filesystem:

@@ -50,6 +50,8 @@ spec:
               value: {{ .Values.registry.invalidation_time.manifests | quote }}
             - name: BLOB_INVALIDATION_TIME
               value: {{ .Values.registry.invalidation_time.blobs | quote }}
+            - name: UPSTREAM_CONFIG_FILE
+              value: /upstream.yaml
             - name: DEFAULT_UPSTREAM_NAMESPACE
               value: {{ .Values.registry.upstream.default_namespace | quote }}
             - name: RUST_LOG

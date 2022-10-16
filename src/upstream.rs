@@ -7,6 +7,7 @@ use dkregistry::v2::Client;
 use serde::Deserialize;
 use tokio::fs::read_to_string;
 use tracing::info;
+use tracing::warn;
 
 pub struct Clients(HashMap<String, Client>);
 impl Clients {
@@ -15,6 +16,7 @@ impl Clients {
 			Some(key) => match self.0.get(key) {
 				Some(v) => Ok(v.clone()),
 				None => {
+					warn!("Unknown namespace '{}' passed; configuring with default settings", key);
 					self.insert(key.to_string(), SingleUpstreamConfig::new(key, key))?;
 					Ok(self.0.get(key).unwrap().clone())
 				}

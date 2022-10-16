@@ -1,6 +1,5 @@
 use core::time::Duration;
 use std::iter;
-use std::sync::Arc;
 
 use actix_web::http;
 use actix_web::rt;
@@ -13,6 +12,7 @@ use futures::stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
 use serde::Deserialize;
+use tokio::sync::Mutex;
 use tracing::error;
 use tracing::warn;
 
@@ -20,6 +20,7 @@ use crate::image::ImageName;
 use crate::image::ImageReference;
 use crate::storage::Manifest;
 use crate::storage::Repository;
+use crate::upstream::Clients;
 use crate::InvalidationTime;
 
 pub mod error;
@@ -30,11 +31,8 @@ async fn authenticate_with_upstream(upstream: &mut Client, scope: &str) -> Resul
 	Ok(())
 }
 
-pub async fn root(upstream: web::Data<Client>) -> Result<&'static str, Error> {
-	Arc::make_mut(&mut upstream.into_inner())
-		.clone()
-		.authenticate(&[])
-		.await?;
+pub async fn root(upstream: web::Data<Mutex<Clients>>, qstr: web::Query<ManifestQueryString>) -> Result<&'static str, Error> {
+	upstream.lock().await.get(&qstr.ns)?.authenticate(&[]).await?;
 	Ok("")
 }
 
@@ -59,7 +57,7 @@ pub struct ManifestQueryString {
 	ns: Option<String>
 }
 
-async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repository, upstream: web::Data<Client>, namespace: &str) -> Result<Manifest, Error> {
+async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repository, upstream: &mut Client, namespace: &str) -> Result<Manifest, Error> {
 	let storage_path = req.storage_path(namespace);
 	match repo.clone().read(&storage_path, max_age).await {
 		Ok(stream) => {
@@ -70,8 +68,7 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 		Err(e) => warn!("{} not found at {} in repository ({}); pulling from upstream", req.http_path(), storage_path, e)
 	}
 
-	let mut upstream = (*upstream.into_inner()).clone();
-	authenticate_with_upstream(&mut upstream, &format!("repository:{}:pull", req.image.as_ref())).await?;
+	authenticate_with_upstream(upstream, &format!("repository:{}:pull", req.image.as_ref())).await?;
 	let (manifest, media_type, digest) = upstream.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string()).await?;
 	let manifest = Manifest::new(manifest, media_type, digest);
 
@@ -83,8 +80,9 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 	Ok(manifest)
 }
 
-pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>, default_ns: web::Data<String>) -> Result<HttpResponse, Error> {
-	let manifest = get_manifest(req.as_ref(), invalidation.manifest, repo.as_ref(), upstream, qstr.ns.as_ref().unwrap_or_else(|| default_ns.as_ref())).await?;
+pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>, default_ns: web::Data<String>) -> Result<HttpResponse, Error> {
+	let mut upstream = upstream.lock().await.get(&qstr.ns)?;
+	let manifest = get_manifest(req.as_ref(), invalidation.manifest, repo.as_ref(), &mut upstream, qstr.ns.as_ref().unwrap_or_else(|| default_ns.as_ref())).await?;
 
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, manifest.media_type.to_string()));
@@ -113,7 +111,7 @@ impl BlobRequest {
 	}
 }
 
-pub async fn blob(req: web::Path<BlobRequest>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Client>) -> Result<HttpResponse, Error> {
+pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryString>, invalidation: web::Data<InvalidationTime>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>) -> Result<HttpResponse, Error> {
 	if(!req.digest.starts_with("sha256:")) {
 		return Err(Error::InvalidDigest);
 	}
@@ -125,7 +123,7 @@ pub async fn blob(req: web::Path<BlobRequest>, invalidation: web::Data<Invalidat
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
-	let mut upstream = (*upstream.into_inner()).clone();
+	let mut upstream = upstream.lock().await.get(&qstr.ns)?;
 	authenticate_with_upstream(&mut upstream, &format!("repository:{}:pull", req.image.as_ref())).await?;
 	let response = upstream.get_blob_response(req.image.as_ref(), req.digest.as_ref()).await?;
 

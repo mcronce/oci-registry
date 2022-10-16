@@ -5,6 +5,7 @@ use actix_web::http::header::HeaderValue;
 use actix_web::web;
 use clap::Parser;
 use humantime::Duration;
+use tokio::sync::Mutex;
 
 mod api;
 mod image;
@@ -60,7 +61,7 @@ async fn main() {
 		.init();
 
 	let repo = web::Data::new(config.storage.repository());
-	let upstream = web::Data::new(config.upstream.client().unwrap());
+	let upstream = web::Data::new(Mutex::new(config.upstream.clients().await.unwrap()));
 	let invalidation = web::Data::new(config.invalidation_time());
 	let default_namespace = web::Data::new(config.default_namespace);
 

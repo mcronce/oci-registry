@@ -5,7 +5,6 @@ use actix_web::http::header::HeaderValue;
 use actix_web::web;
 use clap::Parser;
 use futures::future::FutureExt;
-use humantime::Duration;
 use tokio::sync::Mutex;
 
 mod api;

@@ -1,5 +1,6 @@
 pgo-data/filesystem: target/pgo-data-filesystem/release/oci-registry
 target/pgo-data-filesystem/release/oci-registry:
+	rm -Rf test/*
 	RUSTFLAGS=-Cprofile-generate=pgo-data/filesystem \
 	RUST_LOG=info,actix-web=debug \
 	RUST_BACKTRACE=1 \
@@ -7,6 +8,7 @@ target/pgo-data-filesystem/release/oci-registry:
 
 pgo-data/s3: target/pgo-data-s3/release/oci-registry
 target/pgo-data-s3/release/oci-registry:
+	s3cmd rm -rf s3://oci-registry-test
 	RUSTFLAGS=-Cprofile-generate=pgo-data/s3 \
 	RUST_LOG=info,actix-web=debug \
 	RUST_BACKTRACE=1 \

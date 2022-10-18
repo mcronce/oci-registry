@@ -2,6 +2,7 @@ FROM rust AS builder
 
 ARG \
 	RUSTC_WRAPPER \
+	RUSTFLAGS="-Cprofile-use=/repo/profile.pgodata" \
 	CARGO_INCREMENTAL=1 \
 	SCCACHE_ENDPOINT \
 	SCCACHE_S3_USE_SSL=off \
@@ -10,12 +11,16 @@ ARG \
 	AWS_SECRET_ACCESS_KEY
 
 RUN apt-get update && apt-get install -y cmake
+RUN rustup component add llvm-tools-preview
 ADD tools/maybe-download-sccache /
 RUN /maybe-download-sccache
 
 WORKDIR /repo
-COPY Cargo.toml /repo/
+ADD pgo-data /repo/pgo-data
 
+RUN /usr/local/rustup/toolchains/*/lib/rustlib/*/bin/llvm-profdata merge -o profile.pgodata pgo-data/*/*
+
+COPY Cargo.toml /repo/
 RUN \
 	mkdir -v /repo/src && \
 	echo 'fn main() {}' > /repo/src/main.rs && \

@@ -4,6 +4,7 @@ use actix_web::http::header::HeaderName;
 use actix_web::http::header::HeaderValue;
 use actix_web::web;
 use clap::Parser;
+use futures::future::FutureExt;
 use humantime::Duration;
 use tokio::sync::Mutex;
 
@@ -81,12 +82,12 @@ async fn main() {
 			// /v2/grafana/grafana/blobs/sha256:6864e61916f58174557076c34e7122753331cf28077edb0f23e1fb5419dd6acd
 			.route("/{image:[^{}]+}/blobs/{digest}", web::get().to(api::blob))
 			.wrap_fn(|req, srv| {
-				let fut = srv.call(req);
-				async {
-					let mut response = fut.await?;
-					response.headers_mut().insert(HeaderName::from_static("docker-distribution-api-version"), HeaderValue::from_static("registry/2.0"));
-					Ok(response)
-				}
+				srv.call(req).map(|response| {
+					response.map(|mut ok| {
+						ok.headers_mut().insert(HeaderName::from_static("docker-distribution-api-version"), HeaderValue::from_static("registry/2.0"));
+						ok
+					})
+				})
 			})
 		)
 	);

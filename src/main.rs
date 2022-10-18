@@ -20,31 +20,12 @@ use upstream::UpstreamConfig;
 struct Config {
 	#[clap(env, long, default_value_t = 80)]
 	port: u16,
-	#[clap(env, long, default_value = "14d")]
-	manifest_invalidation_time: Duration,
-	#[clap(env, long, default_value = "14d")]
-	blob_invalidation_time: Duration,
 	#[clap(env, long, default_value = "docker.io")]
 	default_namespace: String,
 	#[clap(flatten)]
 	upstream: UpstreamConfig,
 	#[clap(subcommand)]
 	storage: StorageConfig,
-}
-
-impl Config {
-	fn invalidation_time(&self) -> InvalidationTime {
-		InvalidationTime{
-			manifest: self.manifest_invalidation_time.into(),
-			blob: self.blob_invalidation_time.into()
-		}
-	}
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct InvalidationTime {
-	manifest: core::time::Duration,
-	blob: core::time::Duration
 }
 
 async fn health() -> Result<&'static str, api::error::Error> {
@@ -63,13 +44,11 @@ async fn main() {
 
 	let repo = web::Data::new(config.storage.repository());
 	let upstream = web::Data::new(Mutex::new(config.upstream.clients().await.unwrap()));
-	let invalidation = web::Data::new(config.invalidation_time());
 	let default_namespace = web::Data::new(config.default_namespace);
 
 	let server = actix_web::HttpServer::new(move || actix_web::App::new()
 		.app_data(repo.clone())
 		.app_data(upstream.clone())
-		.app_data(invalidation.clone())
 		.app_data(default_namespace.clone())
 		.wrap(actix_web::middleware::Logger::default())
 		.route("/health", web::get().to(health))

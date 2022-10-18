@@ -3,11 +3,21 @@ use std::collections::HashMap;
 use camino::Utf8PathBuf;
 use clap::Parser;
 use dkregistry::errors::Error;
-use dkregistry::v2::Client;
+use dkregistry::v2::Client as InnerClient;
+use humantime::Duration;
 use serde::Deserialize;
+use serde_with::serde_as;
+use serde_with::DisplayFromStr;
 use tokio::fs::read_to_string;
 use tracing::info;
 use tracing::warn;
+
+#[derive(Clone, Debug)]
+pub struct Client {
+	pub client: InnerClient,
+	pub manifest_invalidation_time: core::time::Duration,
+	pub blob_invalidation_time: core::time::Duration,
+}
 
 pub struct Clients(HashMap<String, Client>);
 impl Clients {
@@ -37,10 +47,19 @@ impl FromIterator<(String, Client)> for Clients {
 	}
 }
 
-fn truth() -> bool {
+const fn truth() -> bool {
 	true
 }
 
+fn default_manifest_invalidation_time() -> Duration {
+	core::time::Duration::from_secs(14 * 86400).into()
+}
+
+fn default_blob_invalidation_time() -> Duration {
+	core::time::Duration::from_secs(14 * 86400).into()
+}
+
+#[serde_as]
 #[derive(Clone, Debug, Deserialize)]
 pub struct SingleUpstreamConfig {
 	namespace: String,
@@ -54,7 +73,13 @@ pub struct SingleUpstreamConfig {
 	#[serde(default)]
 	username: Option<String>,
 	#[serde(default)]
-	password: Option<String>
+	password: Option<String>,
+	#[serde(default = "default_manifest_invalidation_time")]
+	#[serde_as(as = "DisplayFromStr")]
+	manifest_invalidation_time: Duration,
+	#[serde(default = "default_blob_invalidation_time")]
+	#[serde_as(as = "DisplayFromStr")]
+	blob_invalidation_time: Duration,
 }
 
 impl SingleUpstreamConfig {
@@ -66,7 +91,9 @@ impl SingleUpstreamConfig {
 			accept_invalid_certs: false,
 			user_agent: None,
 			username: None,
-			password: None
+			password: None,
+			manifest_invalidation_time: default_manifest_invalidation_time(),
+			blob_invalidation_time: default_blob_invalidation_time()
 		}
 	}
 }
@@ -74,14 +101,19 @@ impl SingleUpstreamConfig {
 impl TryFrom<SingleUpstreamConfig> for Client {
 	type Error = Error;
 	fn try_from(config: SingleUpstreamConfig) -> Result<Self, Self::Error> {
-		Self::configure()
+		let client = InnerClient::configure()
 			.registry(&config.host)
 			.insecure_registry(!config.tls)
 			.accept_invalid_certs(config.accept_invalid_certs)
 			.user_agent(config.user_agent)
 			.username(config.username)
 			.password(config.password)
-			.build()
+			.build()?;
+		Ok(Self{
+			client,
+			manifest_invalidation_time: config.manifest_invalidation_time.into(),
+			blob_invalidation_time: config.blob_invalidation_time.into()
+		})
 	}
 }
 
@@ -123,7 +155,9 @@ impl UpstreamConfig {
 					accept_invalid_certs: false,
 					user_agent: None,
 					username: None,
-					password: None
+					password: None,
+					manifest_invalidation_time: default_manifest_invalidation_time(),
+					blob_invalidation_time: default_blob_invalidation_time()
 				}.try_into()?;
 				let mut map = HashMap::with_capacity(1);
 				map.insert("docker.io".into(), client);

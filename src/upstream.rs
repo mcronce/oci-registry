@@ -27,7 +27,7 @@ impl Clients {
 				Some(v) => Ok(v.clone()),
 				None => {
 					warn!("Unknown namespace '{}' passed; configuring with default settings", key);
-					self.insert(key.to_string(), SingleUpstreamConfig::new(key, key))?;
+					self.insert(key.to_string(), SingleUpstreamConfig::new(key))?;
 					Ok(self.0.get(key).unwrap().clone())
 				}
 			},
@@ -83,7 +83,11 @@ pub struct SingleUpstreamConfig {
 }
 
 impl SingleUpstreamConfig {
-	fn new(namespace: &str, host: &str) -> Self {
+	fn new(namespace: &str) -> Self {
+		Self::with_host(namespace, namespace)
+	}
+
+	fn with_host(namespace: &str, host: &str) -> Self {
 		Self{
 			namespace: namespace.to_owned(),
 			host: host.to_owned(),

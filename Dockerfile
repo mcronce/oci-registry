@@ -11,14 +11,11 @@ ARG \
 	AWS_SECRET_ACCESS_KEY
 
 RUN apt-get update && apt-get install -y cmake
-RUN rustup component add llvm-tools-preview
 ADD tools/maybe-download-sccache /
 RUN /maybe-download-sccache
 
 WORKDIR /repo
-ADD pgo-data /repo/pgo-data
-
-RUN /usr/local/rustup/toolchains/*/lib/rustlib/*/bin/llvm-profdata merge -o profile.pgodata pgo-data/*/*
+ADD profile.pgodata /repo/
 
 COPY Cargo.toml /repo/
 RUN \

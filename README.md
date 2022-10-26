@@ -16,7 +16,7 @@
 * Currently, `oci-registry` only supports being a pull-through cache (a mirror); pushing is not yet implemented.
 * Connecting to `oci-registry` with TLS (https) is not supported and support will not be added.
 	* [Using nginx as a TLS termination proxy][nginx-proxy] is easy, well-supported, and well-documented; if you require TLS between the client and `oci-registry`, that is the recommended configuration
-	* Connecting to upstream registries with TLS is recommended and, typically, required.
+	* Connecting to upstream registries with TLS is supported, recommended, and usually required.
 
 [nginx-proxy]: https://docs.nginx.com/nginx/admin-guide/security-controls/terminating-ssl-http/
 

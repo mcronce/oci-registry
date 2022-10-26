@@ -9,7 +9,6 @@
 * Two storage back-ends
 	* S3
 	* Local filesystem
-* Authentication
 
 # Limitations
 
@@ -17,6 +16,7 @@
 * Connecting to `oci-registry` with TLS (https) is not supported and support will not be added.
 	* [Using nginx as a TLS termination proxy][nginx-proxy] is easy, well-supported, and well-documented; if you require TLS between the client and `oci-registry`, that is the recommended configuration
 	* Connecting to upstream registries with TLS is supported, recommended, and usually required.
+* Authentication is not currently implemented, but is planned
 
 [nginx-proxy]: https://docs.nginx.com/nginx/admin-guide/security-controls/terminating-ssl-http/
 

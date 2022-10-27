@@ -1,0 +1,22 @@
+# Including all config keys on docker.io for demo purposes
+- namespace: docker.io
+  host: registry-1.docker.io
+  tls: true
+  accept_invalid_certs: false
+  user_agent: null
+  username: null
+  password: null
+  manifest_invalidation_time: 14d
+  blob_invalidation_time: 14d
+# Including only required keys for the rest
+- namespace: quay.io
+  host: quay.io
+- namespace: gcr.io
+  host: gcr.io
+- namespace: ghcr.io
+  host: ghcr.io
+- namespace: k8s.gcr.io
+  host: k8s.gcr.io
+- namespace: registry.k8s.io
+  host: registry.k8s.io
+

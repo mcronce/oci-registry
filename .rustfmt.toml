@@ -1,0 +1,15 @@
+version = "Two"
+
+hard_tabs = true
+max_width = 250
+chain_width = 120
+inline_attribute_width = 200
+struct_lit_width = 60
+trailing_comma = "Never"
+match_block_trailing_comma = true
+
+group_imports = "StdExternalCrate"
+imports_granularity = "Item"
+
+reorder_impl_items = true
+

@@ -20,6 +20,7 @@ fn is_valid_sha256(s: &str) -> bool {
 pub struct ImageName(CompactString);
 impl FromStr for ImageName {
 	type Err = error::InvalidImageName;
+
 	fn from_str(input: &str) -> Result<Self, Self::Err> {
 		match RE_IMAGE.is_match(input) {
 			false => Err(error::InvalidImageName(input.to_string())),
@@ -50,11 +51,12 @@ pub enum ImageReference {
 
 impl FromStr for ImageReference {
 	type Err = error::InvalidImageReference;
+
 	fn from_str(input: &str) -> Result<Self, Self::Err> {
 		match input.strip_prefix("sha256:") {
 			None => match RE_TAG.is_match(input) {
 				false => Err(error::InvalidImageReference(input.to_string())),
-				true => Ok(ImageReference::Tag(input.into())),
+				true => Ok(ImageReference::Tag(input.into()))
 			},
 			Some(s) => match is_valid_sha256(s) {
 				false => Err(error::InvalidImageReference(input.to_string())),
@@ -73,4 +75,3 @@ impl fmt::Display for ImageReference {
 		}
 	}
 }
-

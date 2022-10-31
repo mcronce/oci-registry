@@ -111,7 +111,7 @@ impl BlobRequest {
 }
 
 pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryString>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>) -> Result<HttpResponse, Error> {
-	if(!req.digest.starts_with("sha256:")) {
+	if (!req.digest.starts_with("sha256:")) {
 		return Err(Error::InvalidDigest);
 	}
 
@@ -140,7 +140,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 						Err(ArcError::from(e))
 					}
 				};
-				if(tx.broadcast(chunk).await.is_err()) {
+				if (tx.broadcast(chunk).await.is_err()) {
 					error!("Readers for proxied blob request {} all closed", req_path);
 					break;
 				}
@@ -157,4 +157,3 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 
 	Ok(HttpResponse::Ok().streaming(rx))
 }
-

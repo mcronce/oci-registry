@@ -16,7 +16,7 @@ use tracing::warn;
 pub struct Client {
 	pub client: InnerClient,
 	pub manifest_invalidation_time: core::time::Duration,
-	pub blob_invalidation_time: core::time::Duration,
+	pub blob_invalidation_time: core::time::Duration
 }
 
 pub struct Clients(HashMap<String, Client>);
@@ -79,7 +79,7 @@ pub struct SingleUpstreamConfig {
 	manifest_invalidation_time: Duration,
 	#[serde(default = "default_blob_invalidation_time")]
 	#[serde_as(as = "DisplayFromStr")]
-	blob_invalidation_time: Duration,
+	blob_invalidation_time: Duration
 }
 
 impl SingleUpstreamConfig {
@@ -88,7 +88,7 @@ impl SingleUpstreamConfig {
 	}
 
 	fn with_host(namespace: &str, host: &str) -> Self {
-		Self{
+		Self {
 			namespace: namespace.to_owned(),
 			host: host.to_owned(),
 			tls: true,
@@ -104,6 +104,7 @@ impl SingleUpstreamConfig {
 
 impl TryFrom<SingleUpstreamConfig> for Client {
 	type Error = Error;
+
 	fn try_from(config: SingleUpstreamConfig) -> Result<Self, Self::Error> {
 		let client = InnerClient::configure()
 			.registry(&config.host)
@@ -113,7 +114,7 @@ impl TryFrom<SingleUpstreamConfig> for Client {
 			.username(config.username)
 			.password(config.password)
 			.build()?;
-		Ok(Self{
+		Ok(Self {
 			client,
 			manifest_invalidation_time: config.manifest_invalidation_time.into(),
 			blob_invalidation_time: config.blob_invalidation_time.into()
@@ -152,6 +153,7 @@ impl UpstreamConfig {
 				upstream_config.into_iter().collect()
 			},
 			None => {
+				#[rustfmt::skip]
 				let client = SingleUpstreamConfig{
 					namespace: "docker.io".into(),
 					host: "registry-1.docker.io".into(),
@@ -173,4 +175,3 @@ impl UpstreamConfig {
 		Ok(clients)
 	}
 }
-

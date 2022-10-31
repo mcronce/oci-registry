@@ -3,8 +3,8 @@ use core::time::Duration;
 use bytes::Bytes;
 use clap::Subcommand;
 use dkregistry::mediatypes::MediaTypes;
-use futures::stream::TryStream;
 use futures::stream::BoxStream;
+use futures::stream::TryStream;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -50,6 +50,7 @@ impl Repository {
 		E: std::error::Error + Send + Sync + 'static,
 		Error: From<E>
 	{
+		#[rustfmt::skip]
 		#[allow(clippy::let_unit_value)] // Because it's likely that we will change the return type eventually, it'll require fewer changes, and it's harmless as-is.
 		let result = match self {
 			Self::S3(r) => r.write(object, reader, length).await?,
@@ -68,7 +69,6 @@ pub struct Manifest {
 
 impl Manifest {
 	pub fn new(manifest: Bytes, media_type: MediaTypes, digest: Option<String>) -> Self {
-		Self{manifest, media_type, digest}
+		Self { manifest, media_type, digest }
 	}
 }
-

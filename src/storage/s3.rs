@@ -16,10 +16,10 @@ use rusoto_s3::GetObjectError;
 use rusoto_s3::GetObjectOutput;
 use rusoto_s3::GetObjectRequest;
 use rusoto_s3::PutObjectRequest;
-use rusoto_s3::S3;
 use rusoto_s3::S3Client;
-use time::OffsetDateTime;
+use rusoto_s3::S3;
 use time::format_description::well_known::Rfc2822;
+use time::OffsetDateTime;
 
 #[derive(Clone, Debug, Parser)]
 pub struct Config {
@@ -38,15 +38,12 @@ pub struct Config {
 impl Config {
 	pub fn repository(&self) -> Repository {
 		let region = match self.host.clone() {
-			Some(s) => Region::Custom{
-				name: self.region.clone(),
-				endpoint: s
-			},
+			Some(s) => Region::Custom { name: self.region.clone(), endpoint: s },
 			None => Region::from_str(&self.region).unwrap()
 		};
 		let creds = StaticProvider::new(self.access_key.clone(), self.secret_key.clone(), None, None);
 		let http = HttpClient::new().unwrap();
-		Repository{
+		Repository {
 			inner: S3Client::new_with(http, creds, region),
 			bucket: self.bucket.clone()
 		}
@@ -61,7 +58,7 @@ pub struct Repository {
 
 impl Repository {
 	async fn get_object(&self, object: &str) -> Result<GetObjectOutput, RusotoError<GetObjectError>> {
-		let req = GetObjectRequest{
+		let req = GetObjectRequest {
 			bucket: self.bucket.clone(),
 			key: object.into(),
 			..Default::default()
@@ -73,7 +70,7 @@ impl Repository {
 		let obj = self.get_object(object).await?;
 		let time = OffsetDateTime::parse(&obj.last_modified.unwrap(), &Rfc2822)?;
 		let age = Duration::try_from(SystemTime::now() - time).unwrap_or_default();
-		if(age > invalidation) {
+		if (age > invalidation) {
 			return Err(super::Error::ObjectTooOld(age.into()));
 		}
 
@@ -86,7 +83,7 @@ impl Repository {
 		E: std::error::Error + Send + Sync + 'static,
 		super::Error: From<E>
 	{
-		let req = PutObjectRequest{
+		let req = PutObjectRequest {
 			bucket: self.bucket.clone(),
 			key: object.into(),
 			content_length: Some(length),
@@ -97,4 +94,3 @@ impl Repository {
 		Ok(())
 	}
 }
-

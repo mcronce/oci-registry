@@ -27,9 +27,7 @@ pub struct Config {
 
 impl Config {
 	pub fn repository(&self) -> Repository {
-		Repository{
-			root: self.root.clone()
-		}
+		Repository { root: self.root.clone() }
 	}
 }
 
@@ -40,11 +38,8 @@ pub struct Repository {
 
 impl Repository {
 	fn full_path(&self, path: &Utf8Path) -> Utf8PathBuf {
-		self.root.join(path
-			.components()
-			.filter(|c| matches!(c, Utf8Component::ParentDir | Utf8Component::Normal(_)))
-			.collect::<Utf8PathBuf>()
-		)
+		let path = path.components().filter(|c| matches!(c, Utf8Component::ParentDir | Utf8Component::Normal(_))).collect::<Utf8PathBuf>();
+		self.root.join(path)
 	}
 
 	pub async fn read(self, object: &Utf8Path, invalidation: Duration) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, super::Error> {
@@ -53,7 +48,7 @@ impl Repository {
 			let metadata = symlink_metadata(&path).await?;
 			SystemTime::now().duration_since(metadata.modified()?).unwrap_or_default()
 		};
-		if(age > invalidation) {
+		if (age > invalidation) {
 			return Err(super::Error::ObjectTooOld(age.into()));
 		}
 		let mut file = BufReader::with_capacity(16384, File::open(path).await?);
@@ -82,7 +77,7 @@ impl Repository {
 		let file = OpenOptions::default().create(true).read(false).write(true).truncate(true).open(&path).await?;
 		let mut file = BufWriter::with_capacity(16384, file);
 		while let Some(buf) = reader.try_next().await? {
-			if(buf.is_empty()) {
+			if (buf.is_empty()) {
 				break;
 			}
 			file.write_all(buf.as_ref()).await?;
@@ -91,4 +86,3 @@ impl Repository {
 		Ok(())
 	}
 }
-

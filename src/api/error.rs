@@ -32,8 +32,6 @@ impl actix_web::ResponseError for Error {
 	fn error_response(&self) -> HttpResponse<BoxBody> {
 		let status_code = self.status_code();
 		error!("{}: {}", status_code.as_u16(), self);
-		HttpResponseBuilder::new(status_code)
-			.body(self.to_string())
+		HttpResponseBuilder::new(status_code).body(self.to_string())
 	}
 }
-

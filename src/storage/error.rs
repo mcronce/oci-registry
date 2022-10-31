@@ -16,4 +16,3 @@ pub enum Error {
 	#[error("Error reading from upstream: {0}")]
 	Upstream(#[from] ArcError<dkregistry::errors::Error>)
 }
-

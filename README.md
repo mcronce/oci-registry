@@ -8,7 +8,7 @@
 * Two storage back-ends
 	* S3
 	* Local filesystem
-* Small footprint; in my test system, the official `registry` uses approximately 130 MiB of memory to mirror docker.io; five replicas of `oci-registry` combined use approximately 90 MiB to mirror everything in [example.yaml], plus one private registry.  CPU is negligible for both.
+* Small footprint; in my test system, the official `registry` uses approximately 130 MiB of memory to mirror docker.io; five replicas of `oci-registry` combined use approximately 60 MiB to mirror everything in [example.yaml], plus one private registry.  CPU is negligible for both.
 
 # Limitations
 * Pushing is not currently implemented; `oci-registry` only supports being a pull-through cache (a mirror) at this time.  Push support is planned.

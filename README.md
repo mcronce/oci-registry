@@ -93,7 +93,12 @@ EOF
 
 The above example will configure `containerd` to attempt to pull `docker.io` and `gcr.io` manifests and blobs from `oci-registry` listening on `localhost:8080`, while sticking with the original hosts for pushing, and using the original hosts if something goes wrong with `oci-registry`.
 
+# Community
+The Github repo is a mirror.  Project management is done in the [main repo][gitlab].  In addition, there is a [Matrix room][matrix].
+
 [nginx-proxy]: https://docs.nginx.com/nginx/admin-guide/security-controls/terminating-ssl-http/
 [containerd-hosts]: https://github.com/containerd/containerd/blob/main/docs/cri/config.md#registry-configuration
 [containerd-deprecated]: https://github.com/containerd/containerd/blob/main/docs/cri/registry.md#configure-registry-endpoint
+[gitlab]: https://gitlab.cronce.io/foss/oci-registry
+[matrix]: https://matrix.to/#/%23oci-registry%3Acronce.io
 

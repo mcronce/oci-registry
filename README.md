@@ -17,6 +17,7 @@
 * Connecting to `oci-registry` with TLS (https) is not supported and support will not be added.
 	* [Using nginx as a TLS termination proxy][nginx-proxy] is easy, well-supported, and well-documented; if you require TLS between the client and `oci-registry`, that is the recommended configuration
 	* Connecting to upstream registries with TLS is supported, recommended, and usually required.
+* If two clients request the same blob simultaneously, it will be downloaded from upstream twice in parallel instead of having the later request wait for the download to finish, then serve it from cache.  There are no data corruption issues, but it is suboptimal.  No fix is currently planned, but I'm open to one.
 
 # Examples
 ## `docker`

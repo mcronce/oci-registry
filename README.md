@@ -8,7 +8,7 @@
 * Two storage back-ends
 	* S3
 	* Local filesystem
-* Small footprint; in my test system, the official `registry` uses approximately 130 MiB of memory to mirror docker.io; five replicas of `oci-registry` combined use approximately 60 MiB to mirror everything in [example.yaml], plus one private registry.  CPU is negligible for both.
+* Small footprint; in my test system, the official `registry` uses approximately 130 MiB of memory to mirror docker.io; five replicas of `oci-registry` combined use approximately 60 MiB to mirror everything in [example.yaml](example.yaml), plus one private registry.  CPU is negligible for both.
 
 # Limitations
 * Pushing is not currently implemented; `oci-registry` only supports being a pull-through cache (a mirror) at this time.  Push support is planned.
@@ -44,7 +44,7 @@ Restart Docker and it will start pulling images from `docker.io` through `oci-re
 ### Configure `oci-registry`
 `oci-registry`'s default configuration is to mirror any registry for which it receives requests, connecting to upstream with HTTPS, rejecting invalid certs, and using the namespace as the upstream registry host - e.g. requests for `gcr.io` images will be made to https://gcr.io/ - with the exception of `docker.io`, which will be pointed to https://registry-1.docker.io
 
-In short, `oci-registry`'s default configuration will work for most public registries, but can be added to with `--upstream-config-file`.  See [example.yaml] for real world examples, or the following contrived private registry example:
+In short, `oci-registry`'s default configuration will work for most public registries, but can be added to with `--upstream-config-file`.  See [example.yaml](example.yaml) for real world examples, or the following contrived private registry example:
 ```yaml
 # namespace and host are the only two required keys
 - namespace: example.com

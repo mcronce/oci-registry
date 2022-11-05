@@ -27,7 +27,11 @@ struct Config {
 	storage: StorageConfig
 }
 
-async fn health() -> Result<&'static str, api::error::Error> {
+async fn health_alive() -> Result<&'static str, api::error::Error> {
+	Ok("")
+}
+
+async fn health_ready() -> Result<&'static str, api::error::Error> {
 	// TODO:  Check upstream and storage
 	Ok("")
 }
@@ -48,7 +52,8 @@ async fn main() {
 			.app_data(upstream.clone())
 			.app_data(default_namespace.clone())
 			.wrap(actix_web::middleware::Logger::default())
-			.route("/health", web::get().to(health))
+			.route("/h/l", web::get().to(health_alive))
+			.route("/h/r", web::get().to(health_ready))
 			.service(
 				web::scope("/v2")
 					.route("/", web::get().to(api::root))

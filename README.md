@@ -18,6 +18,7 @@
 	* [Using nginx as a TLS termination proxy][nginx-proxy] is easy, well-supported, and well-documented; if you require TLS between the client and `oci-registry`, that is the recommended configuration
 	* Connecting to upstream registries with TLS is supported, recommended, and usually required.
 * If two clients request the same blob simultaneously, it will be downloaded from upstream twice in parallel instead of having the later request wait for the download to finish, then serve it from cache.  There are no data corruption issues, but it is suboptimal.  No fix is currently planned, but I'm open to one.
+* Has not yet had the [OCI distribution spec conformance test suite][oci-test-suite] run against it; only manual compatibility testing with `docker` and `containerd` has been performed.  This is planned after push support is implemented.
 
 # Examples
 ## `docker`
@@ -97,6 +98,7 @@ The above example will configure `containerd` to attempt to pull `docker.io` and
 The Github repo is a mirror.  Project management is done in the [main repo][gitlab].  In addition, there is a [Matrix room][matrix].
 
 [nginx-proxy]: https://docs.nginx.com/nginx/admin-guide/security-controls/terminating-ssl-http/
+[oci-test-suite]: https://github.com/opencontainers/distribution-spec/tree/main/conformance
 [containerd-hosts]: https://github.com/containerd/containerd/blob/main/docs/cri/config.md#registry-configuration
 [containerd-deprecated]: https://github.com/containerd/containerd/blob/main/docs/cri/registry.md#configure-registry-endpoint
 [gitlab]: https://gitlab.cronce.io/foss/oci-registry

@@ -9,6 +9,7 @@
 	* S3
 	* Local filesystem
 * Small footprint; in my test system, the official `registry` uses approximately 130 MiB of memory to mirror docker.io; five replicas of `oci-registry` combined use approximately 60 MiB to mirror everything in [example.yaml](example.yaml), plus one private registry.  CPU is negligible for both.
+* A [helm chart][artifacthub]
 
 # Limitations
 * Pushing is not currently implemented; `oci-registry` only supports being a pull-through cache (a mirror) at this time.  Push support is planned.
@@ -97,6 +98,7 @@ The above example will configure `containerd` to attempt to pull `docker.io` and
 # Community
 The Github repo is a mirror.  Project management is done in the [main repo][gitlab].  In addition, there is a [Matrix room][matrix].
 
+[artifacthub]: https://artifacthub.io/packages/helm/cronce/oci-registry
 [nginx-proxy]: https://docs.nginx.com/nginx/admin-guide/security-controls/terminating-ssl-http/
 [oci-test-suite]: https://github.com/opencontainers/distribution-spec/tree/main/conformance
 [containerd-hosts]: https://github.com/containerd/containerd/blob/main/docs/cri/config.md#registry-configuration

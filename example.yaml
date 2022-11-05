@@ -1,4 +1,4 @@
-# Including all config keys on docker.io for demo purposes
+# Including all config items on docker.io for demo purposes
 - namespace: docker.io
   host: registry-1.docker.io
   tls: true
@@ -8,7 +8,7 @@
   password: null
   manifest_invalidation_time: 14d
   blob_invalidation_time: 14d
-# Including only required keys for the rest
+# Including only required config for the rest
 - namespace: quay.io
   host: quay.io
 - namespace: gcr.io

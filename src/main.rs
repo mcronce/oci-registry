@@ -27,8 +27,8 @@ struct Config {
 	storage: StorageConfig
 }
 
-async fn health_alive() -> Result<&'static str, api::error::Error> {
-	Ok("")
+async fn health_alive() -> &'static str {
+	""
 }
 
 async fn health_ready() -> Result<&'static str, api::error::Error> {

@@ -53,11 +53,9 @@ async fn main() {
 			.app_data(repo.clone())
 			.app_data(upstream.clone())
 			.app_data(default_namespace.clone())
-			.wrap(actix_web::middleware::Logger::default())
-			.route("/h/l", web::get().to(health_alive))
-			.route("/h/r", web::get().to(health_ready))
 			.service(
 				web::scope("/v2")
+					.wrap(actix_web::middleware::Logger::default())
 					.route("/", web::get().to(api::root))
 					// /v2/library/telegraf/manifests/1.24-alpine
 					// /v2/library/redis/manifests/sha256:226cbafc637cd58cf008bf87ec9d1548ad1b672ef4279433495bdff100cdb883
@@ -75,6 +73,8 @@ async fn main() {
 						})
 					})
 			)
+			.route("/h/l", web::get().to(health_alive))
+			.route("/h/r", web::get().to(health_ready))
 	});
 	server.shutdown_timeout(10).bind(&format!("0.0.0.0:{}", config.port)).unwrap().run().await.unwrap();
 }

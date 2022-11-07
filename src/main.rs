@@ -27,10 +27,12 @@ struct Config {
 	storage: StorageConfig
 }
 
+#[inline]
 async fn health_alive() -> &'static str {
 	""
 }
 
+#[inline]
 async fn health_ready() -> Result<&'static str, api::error::Error> {
 	// TODO:  Check upstream and storage
 	Ok("")

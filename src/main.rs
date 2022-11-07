@@ -73,8 +73,8 @@ async fn main() {
 						})
 					})
 			)
-			.route("/h/l", web::get().to(health_alive))
-			.route("/h/r", web::get().to(health_ready))
+			.route("/l", web::get().to(health_alive))
+			.route("/r", web::get().to(health_ready))
 	});
 	server.shutdown_timeout(10).bind(&format!("0.0.0.0:{}", config.port)).unwrap().run().await.unwrap();
 }

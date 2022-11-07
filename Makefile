@@ -1,7 +1,9 @@
 profile.pgodata: profdata/pgo/s3 profdata/pgo/filesystem
+	rm -vf profile.pgodata
 	llvm-profdata merge -o profile.pgodata profdata/pgo/s3/* profdata/pgo/filesystem/*
 
 profdata/pgo/s3: target/pgo-data-s3/release/oci-registry testdata/requests.txt
+	rm -Rvf profdata/pgo/s3
 	s3cmd rm -rf s3://oci-registry-test
 	RUST_LOG=info,actix-web=debug \
 	RUST_BACKTRACE=1 \
@@ -26,6 +28,7 @@ target/pgo-data-s3/release/oci-registry: Cargo.toml src
 	cargo build --target-dir=target/pgo-data-s3 --release
 
 profdata/pgo/filesystem: target/pgo-data-filesystem/release/oci-registry testdata/requests.txt
+	rm -Rvf profdata/pgo/filesystem
 	rm -Rf test/*
 	RUST_LOG=info,actix-web=debug \
 	RUST_BACKTRACE=1 \

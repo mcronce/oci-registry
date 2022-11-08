@@ -25,7 +25,7 @@ COPY src /repo/src
 
 RUN \
 	touch src/main.rs && \
-	RUST_LOG=debug cargo pgo build && \
+	cargo pgo build && \
 	bash -exc "if [ '${RUSTC_WRAPPER}' == '/sccache' ]; then /sccache -s; fi"
 
 ADD tools /repo/tools

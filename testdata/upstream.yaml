@@ -1,0 +1,20 @@
+- namespace: docker.io
+  host: proxy.docker.cronce.io
+  tls: false
+  accept_invalid_certs: false
+  user_agent: null
+  username: null
+  password: null
+  manifest_invalidation_time: 14d
+  blob_invalidation_time: 14d
+- namespace: quay.io
+  host: quay.io
+- namespace: gcr.io
+  host: gcr.io
+- namespace: ghcr.io
+  host: ghcr.io
+- namespace: k8s.gcr.io
+  host: k8s.gcr.io
+- namespace: registry.k8s.io
+  host: registry.k8s.io
+

@@ -1,0 +1,7 @@
+[default]
+access_key = F504CLZ37ECLH011V4XB
+secret_key = Btj2sAMtCs7GFpkmrKuMojvSdivXWt8EXy5DDZJ5
+host_base = 192.168.1.200:7480
+host_bucket = 192.168.1.200:7480/%(bucket)
+use_https = False
+

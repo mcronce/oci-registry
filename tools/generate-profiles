@@ -1,0 +1,11 @@
+#!/bin/sh
+DIR="$(cd "$(dirname "${0}")"; pwd)"
+
+"${DIR}/generate-filesystem-profile" "$1" &
+pid_fs="$!"
+
+"${DIR}/generate-s3-profile" "$1" &
+pid_s3="$!"
+
+wait "$pid_fs" "$pid_s3"
+

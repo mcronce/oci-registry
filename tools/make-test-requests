@@ -1,0 +1,27 @@
+#!/bin/sh
+(
+	for i in {0..200}; do
+		echo 'GET /l'
+		echo 'GET /r'
+		sleep 0.1
+	done
+
+	for i in {0..3}; do
+		COUNT=0;
+		cat "$(cd "$(dirname "${0}")"; pwd)/../testdata/requests.txt" | sed 's/^\s\+[0-9]\+\s\+//' | while read method request; do
+			if [ $((COUNT % 5)) -eq 0 ] || [ $((COUNT % 11)) -eq 0 ] || [ $((COUNT % 19)) -eq 0 ]; then
+				echo 'GET /l'
+				echo 'GET /r'
+			fi
+			echo "$method $request"
+			COUNT=$((COUNT + 1));
+		done
+
+		for i in {0..500}; do
+			echo 'GET /l'
+			echo 'GET /r'
+			sleep 0.1
+		done
+	done
+) | xargs -n2 -P40 bash -c 'curl -o /dev/null -X "${1}" "'"${1}"'${2}" &>/dev/null; echo $? $@' argv0
+

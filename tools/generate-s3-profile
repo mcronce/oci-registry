@@ -1,0 +1,24 @@
+#!/bin/bash
+DIR="$(cd "$(dirname "${0}")"; pwd)"
+
+s3cmd rm -rf s3://oci-registry-test
+RUST_LOG=info,actix-web=debug
+RUST_BACKTRACE=1
+"./target/x86_64-unknown-linux-gnu/release/oci-registry${1}" \
+	--port 16384 \
+	--upstream-config-file=testdata/upstream.yaml \
+	s3 \
+	--host=http://192.168.1.200:7480 \
+	--access-key=F504CLZ37ECLH011V4XB \
+	--secret-key=Btj2sAMtCs7GFpkmrKuMojvSdivXWt8EXy5DDZJ5 \
+	--bucket=oci-registry-test \
+	| sed 's/^/[s3] /' &
+sleep 0.1
+
+"${DIR}/make-test-requests" http://localhost:16384 | sed 's/^/[s3] /'
+sleep 2
+echo '[s3] done requests'
+ps -ef | grep "oci-registry${1}" | grep -- '--port 16384' | awk '{print $2}' | xargs kill
+echo '[s3] killed oci-registry'
+sleep 0.5
+

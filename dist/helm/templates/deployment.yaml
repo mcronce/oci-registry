@@ -65,14 +65,14 @@ spec:
               subPath: upstream.yaml
           readinessProbe:
             httpGet:
-              path: /h/r
+              path: /r
               port: http
             initialDelaySeconds: 1
             periodSeconds: 2
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /h/l
+              path: /l
               port: http
             initialDelaySeconds: 1
             periodSeconds: 2

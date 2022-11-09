@@ -1,5 +1,6 @@
 use core::time::Duration;
 
+use actix_web::HttpResponse;
 use bytes::Bytes;
 use clap::Subcommand;
 use dkregistry::mediatypes::MediaTypes;
@@ -35,8 +36,31 @@ pub enum Repository {
 	Filesystem(filesystem::Repository)
 }
 
+pub struct ReadStream {
+	length: u64,
+	inner: BoxStream<'static, Result<Bytes, std::io::Error>>
+}
+
+impl ReadStream {
+	pub fn new(length: u64, inner: BoxStream<'static, Result<Bytes, std::io::Error>>) -> Self {
+		Self { length, inner }
+	}
+
+	pub fn into_inner(self) -> BoxStream<'static, Result<Bytes, std::io::Error>> {
+		self.inner
+	}
+}
+
+impl From<ReadStream> for HttpResponse {
+	fn from(stream: ReadStream) -> Self {
+		let mut response = HttpResponse::Ok();
+		response.insert_header((actix_web::http::header::CONTENT_LENGTH, stream.length.to_string()));
+		response.streaming(stream.inner)
+	}
+}
+
 impl Repository {
-	pub async fn read(self, object: &str, invalidation: Duration) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, Error> {
+	pub async fn read(self, object: &str, invalidation: Duration) -> Result<ReadStream, Error> {
 		let result = match self {
 			Self::S3(r) => r.read(object, invalidation).await?,
 			Self::Filesystem(r) => r.read(object.into(), invalidation).await?

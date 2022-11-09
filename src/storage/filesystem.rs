@@ -7,7 +7,6 @@ use camino::Utf8Component;
 use camino::Utf8Path;
 use camino::Utf8PathBuf;
 use clap::Parser;
-use futures::stream::BoxStream;
 use futures::stream::TryStream;
 use futures::stream::TryStreamExt;
 use tokio::fs::create_dir_all;
@@ -18,6 +17,8 @@ use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
 use tokio::io::BufWriter;
+
+use super::ReadStream;
 
 #[derive(Clone, Debug, Parser)]
 pub struct Config {
@@ -42,27 +43,30 @@ impl Repository {
 		self.root.join(path)
 	}
 
-	pub async fn read(self, object: &Utf8Path, invalidation: Duration) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, super::Error> {
+	pub async fn read(self, object: &Utf8Path, invalidation: Duration) -> Result<ReadStream, super::Error> {
 		let path = self.full_path(object);
-		let age = {
+		let (age, length) = {
 			let metadata = symlink_metadata(&path).await?;
-			SystemTime::now().duration_since(metadata.modified()?).unwrap_or_default()
+			(SystemTime::now().duration_since(metadata.modified()?).unwrap_or_default(), metadata.len())
 		};
 		if (age > invalidation) {
 			return Err(super::Error::ObjectTooOld(age.into()));
 		}
 		let mut file = BufReader::with_capacity(16384, File::open(path).await?);
-		Ok(Box::pin(try_stream! {
-			loop {
-				let buf = file.fill_buf().await?;
-				if(buf.len() == 0) {
-					break;
+		Ok(ReadStream::new(
+			length,
+			Box::pin(try_stream! {
+				loop {
+					let buf = file.fill_buf().await?;
+					if(buf.len() == 0) {
+						break;
+					}
+					let len = buf.len();
+					yield Bytes::copy_from_slice(buf);
+					file.consume(len);
 				}
-				let len = buf.len();
-				yield Bytes::copy_from_slice(buf);
-				file.consume(len);
-			}
-		}))
+			})
+		))
 	}
 
 	pub async fn write<S, E>(&self, object: &Utf8Path, mut reader: S) -> Result<(), super::Error>

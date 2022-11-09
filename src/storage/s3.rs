@@ -4,7 +4,6 @@ use std::time::SystemTime;
 
 use actix_web::web::Bytes;
 use clap::Parser;
-use futures::stream::BoxStream;
 use futures::stream::TryStream;
 use futures::stream::TryStreamExt;
 use rusoto_core::request::HttpClient;
@@ -20,6 +19,8 @@ use rusoto_s3::S3Client;
 use rusoto_s3::S3;
 use time::format_description::well_known::Rfc2822;
 use time::OffsetDateTime;
+
+use super::ReadStream;
 
 #[derive(Clone, Debug, Parser)]
 pub struct Config {
@@ -66,7 +67,7 @@ impl Repository {
 		self.inner.get_object(req).await
 	}
 
-	pub async fn read(self, object: &str, invalidation: Duration) -> Result<BoxStream<'static, Result<Bytes, std::io::Error>>, super::Error> {
+	pub async fn read(self, object: &str, invalidation: Duration) -> Result<ReadStream, super::Error> {
 		let obj = self.get_object(object).await?;
 		let time = OffsetDateTime::parse(&obj.last_modified.unwrap(), &Rfc2822)?;
 		let age = Duration::try_from(SystemTime::now() - time).unwrap_or_default();
@@ -74,7 +75,7 @@ impl Repository {
 			return Err(super::Error::ObjectTooOld(age.into()));
 		}
 
-		Ok(Box::pin(obj.body.unwrap()))
+		Ok(ReadStream::new(obj.content_length.unwrap().try_into().unwrap_or_default(), Box::pin(obj.body.unwrap())))
 	}
 
 	pub async fn write<S, E>(&self, object: &str, reader: S, length: i64) -> Result<(), super::Error>

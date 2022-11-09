@@ -1,4 +1,4 @@
-FROM mcronce/rust-bolt AS builder
+FROM mcronce/rust-pgo AS builder
 
 ARG \
 	RUSTC_WRAPPER \

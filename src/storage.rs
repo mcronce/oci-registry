@@ -1,11 +1,12 @@
 use core::time::Duration;
 
-use actix_web::HttpResponse;
+use actix_web::body::SizedStream;
 use bytes::Bytes;
 use clap::Subcommand;
 use dkregistry::mediatypes::MediaTypes;
 use futures::stream::BoxStream;
 use futures::stream::TryStream;
+use futures::stream::TryStreamExt;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -51,11 +52,9 @@ impl ReadStream {
 	}
 }
 
-impl From<ReadStream> for HttpResponse {
+impl From<ReadStream> for SizedStream<BoxStream<'static, Result<Bytes, Box<dyn std::error::Error + 'static>>>> {
 	fn from(stream: ReadStream) -> Self {
-		let mut response = HttpResponse::Ok();
-		response.insert_header((actix_web::http::header::CONTENT_LENGTH, stream.length.to_string()));
-		response.streaming(stream.inner)
+		SizedStream::new(stream.length, Box::pin(stream.inner.err_into()))
 	}
 }
 

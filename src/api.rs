@@ -1,6 +1,7 @@
 use core::time::Duration;
 use std::iter;
 
+use actix_web::body::SizedStream;
 use actix_web::http;
 use actix_web::rt;
 use actix_web::web;
@@ -120,7 +121,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let storage_path = req.storage_path();
 	let max_age = upstream.lock().await.get(qstr.ns.as_deref())?.blob_invalidation_time;
 	match (*repo.clone().into_inner()).clone().read(storage_path.as_ref(), max_age).await {
-		Ok(stream) => return Ok(stream.into()),
+		Ok(stream) => return Ok(HttpResponse::Ok().body(SizedStream::from(stream))),
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
@@ -156,7 +157,5 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		}
 	});
 
-	let mut response = HttpResponse::Ok();
-	response.insert_header((http::header::CONTENT_LENGTH, len.to_string()));
-	Ok(response.streaming(rx))
+	Ok(HttpResponse::Ok().body(SizedStream::new(len, rx.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))))
 }

@@ -4,6 +4,7 @@ use actix_web::http::header::HeaderName;
 use actix_web::http::header::HeaderValue;
 use actix_web::web;
 use clap::Parser;
+use compact_str::CompactString;
 use futures::future::FutureExt;
 use tokio::sync::Mutex;
 
@@ -20,7 +21,7 @@ struct Config {
 	#[clap(env, long, default_value_t = 80)]
 	port: u16,
 	#[clap(env, long, default_value = "docker.io")]
-	default_namespace: String,
+	default_namespace: CompactString,
 	#[clap(flatten)]
 	upstream: UpstreamConfig,
 	#[clap(subcommand)]

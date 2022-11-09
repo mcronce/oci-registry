@@ -7,6 +7,7 @@ use actix_web::web;
 use actix_web::HttpResponse;
 use arcerror::ArcError;
 use arcstr::ArcStr;
+use compact_str::CompactString;
 use dkregistry::v2::Client;
 use futures::stream;
 use futures::StreamExt;
@@ -53,7 +54,7 @@ impl ManifestRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct ManifestQueryString {
-	ns: Option<String>
+	ns: Option<CompactString>
 }
 
 async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repository, upstream: &mut Client, namespace: &str) -> Result<Manifest, Error> {
@@ -79,7 +80,7 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 	Ok(manifest)
 }
 
-pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>, default_ns: web::Data<String>) -> Result<HttpResponse, Error> {
+pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>, default_ns: web::Data<CompactString>) -> Result<HttpResponse, Error> {
 	let mut upstream = upstream.lock().await.get(qstr.ns.as_deref())?;
 	let manifest = get_manifest(req.as_ref(), upstream.manifest_invalidation_time, repo.as_ref(), &mut upstream.client, qstr.ns.as_ref().unwrap_or_else(|| default_ns.as_ref())).await?;
 

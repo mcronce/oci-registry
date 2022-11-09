@@ -38,9 +38,13 @@ RUN \
 
 RUN \
 	cargo pgo bolt build --with-pgo && \
+	bash -exc "if [ '${RUSTC_WRAPPER}' == '/sccache' ]; then /sccache -s; fi" && \
 	./tools/generate-profiles -bolt-instrumented | sed 's/^/[bolt] /'
 
-RUN cargo pgo bolt optimize --with-pgo
+RUN \
+	cargo pgo bolt optimize --with-pgo && \
+	bash -exc "if [ '${RUSTC_WRAPPER}' == '/sccache' ]; then /sccache -s; fi"
+
 RUN strip /repo/target/x86_64-unknown-linux-gnu/release/oci-registry-bolt-optimized
 
 FROM gcr.io/distroless/cc-debian11

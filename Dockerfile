@@ -1,4 +1,4 @@
-FROM mcronce/rust-pgo AS builder
+FROM mcronce/rust-pgo:1.65 AS builder
 
 ARG \
 	RUSTC_WRAPPER \

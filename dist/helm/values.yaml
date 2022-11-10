@@ -20,6 +20,8 @@ registry:
         #  user_agent: null
         #  username: null
         #  password: null
+        #  manifest_invalidation_time: 14d
+        #  blob_invalidation_time: 14d
         #- namespace: quay.io
         #  host: quay.io
         #- namespace: gcr.io

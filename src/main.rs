@@ -1,10 +1,13 @@
 #![allow(unused_parens)]
+use core::str::FromStr;
 use core::time::Duration;
+use std::net::SocketAddr;
 
 use actix_web::dev::Service;
 use actix_web::http::header::HeaderName;
 use actix_web::http::header::HeaderValue;
 use actix_web::web;
+use camino::Utf8PathBuf;
 use clap::Parser;
 use compact_str::CompactString;
 use futures::future::join_all;
@@ -24,10 +27,31 @@ mod upstream;
 use storage::StorageConfig;
 use upstream::UpstreamConfig;
 
+#[derive(Clone, Debug)]
+enum Listen {
+	Network(SocketAddr),
+	UnixSocket(Utf8PathBuf)
+}
+
+impl FromStr for Listen {
+	type Err = &'static str;
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s.strip_prefix("unix:") {
+			Some(v) => Ok(Self::UnixSocket(v.into())),
+			None => match SocketAddr::from_str(s) {
+				Ok(v) => Ok(Self::Network(v)),
+				Err(_) => Err("'{}' is neither a valid network address nor a path prefixed with 'unix:'")
+			}
+		}
+	}
+}
+
 #[derive(Debug, Parser)]
 struct Config {
-	#[clap(env, long, default_value_t = 80)]
-	port: u16,
+	/// An IP address and port combination to listen on a network socket, or a path prefixed with
+	/// "unix:" to listen on a Unix domain socket
+	#[clap(env, long, default_value = "0.0.0.0:80")]
+	listen: Listen,
 	#[clap(env, long, default_value = "docker.io")]
 	default_namespace: CompactString,
 	#[clap(flatten)]
@@ -123,7 +147,10 @@ async fn main() {
 			.route("/l", web::get().to(health_alive))
 			.route("/r", web::get().to(health_ready))
 	});
-	server.shutdown_timeout(10).bind(&format!("0.0.0.0:{}", config.port)).unwrap().run().await.unwrap();
+	match config.listen {
+		Listen::Network(addr) => server.shutdown_timeout(10).bind(&addr).unwrap().run().await.unwrap(),
+		Listen::UnixSocket(path) => server.shutdown_timeout(10).bind_uds(&path).unwrap().run().await.unwrap()
+	};
 	shutdown_tx.send(()).unwrap();
 	background.await.unwrap();
 }

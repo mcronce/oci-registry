@@ -3,13 +3,16 @@ use std::time::SystemTime;
 
 use actix_web::web::Bytes;
 use async_stream::try_stream;
+use async_walkdir::WalkDir;
 use camino::Utf8Component;
 use camino::Utf8Path;
 use camino::Utf8PathBuf;
 use clap::Parser;
+use futures::stream::StreamExt;
 use futures::stream::TryStream;
 use futures::stream::TryStreamExt;
 use tokio::fs::create_dir_all;
+use tokio::fs::remove_file;
 use tokio::fs::symlink_metadata;
 use tokio::fs::File;
 use tokio::fs::OpenOptions;
@@ -17,6 +20,8 @@ use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncWriteExt;
 use tokio::io::BufReader;
 use tokio::io::BufWriter;
+use tracing::error;
+use tracing::info;
 
 use super::ReadStream;
 
@@ -88,5 +93,50 @@ impl Repository {
 		}
 		file.flush().await?;
 		Ok(())
+	}
+
+	pub async fn delete_old_files(&self, age: Duration, prefix: &Utf8Path) -> Result<usize, super::Error> {
+		let now = SystemTime::now();
+		let mut count = 0;
+		let root = self.root.join(prefix);
+		let mut entries = WalkDir::new(root);
+		while let Some(entry) = entries.next().await {
+			let entry = match entry {
+				Ok(v) => v,
+				Err(e) => {
+					error!("Error walking '{prefix}':  {e}");
+					continue;
+				}
+			};
+			let path = entry.path();
+			let metadata = match entry.metadata().await {
+				Ok(v) => v,
+				Err(e) => {
+					error!("Error reading metadata for {}:  {e}", path.display());
+					continue;
+				}
+			};
+			if (!metadata.is_file()) {
+				continue;
+			}
+			let modified = match metadata.modified() {
+				Ok(v) => v,
+				Err(e) => {
+					error!("Error reading mtime for {}:  {e}", path.display());
+					continue;
+				}
+			};
+			if (now.duration_since(modified).unwrap_or_default() > age) {
+				match remove_file(&path).await {
+					Ok(_) => info!("Aged out '{}'", path.display()),
+					Err(e) => {
+						error!("Error deleting '{}':  {e}", path.display());
+						continue;
+					}
+				}
+				count += 1;
+			}
+		}
+		Ok(count)
 	}
 }

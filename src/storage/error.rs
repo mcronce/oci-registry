@@ -5,6 +5,8 @@ use rusoto_core::RusotoError;
 pub enum Error {
 	#[error("I/O error: {0}")]
 	Io(#[from] std::io::Error),
+	#[error("Failed to list objects in S3: {0:?}")]
+	RusotoList(#[from] RusotoError<rusoto_s3::ListObjectsV2Error>),
 	#[error("Failed to get object from S3: {0:?}")]
 	RusotoGet(#[from] RusotoError<rusoto_s3::GetObjectError>),
 	#[error("Failed to put object into S3: {0:?}")]

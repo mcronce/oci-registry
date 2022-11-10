@@ -81,6 +81,20 @@ impl Repository {
 		};
 		Ok(result)
 	}
+
+	pub async fn delete_old_blobs(&self, age: Duration) -> Result<usize, Error> {
+		match self {
+			Self::S3(r) => r.delete_old_objects(age, "blobs/").await,
+			Self::Filesystem(r) => r.delete_old_files(age, "blobs".as_ref()).await
+		}
+	}
+
+	pub async fn delete_old_manifests(&self, ns: &str, age: Duration) -> Result<usize, Error> {
+		match self {
+			Self::S3(r) => r.delete_old_objects(age, &format!("manifests/{}", ns)).await,
+			Self::Filesystem(r) => r.delete_old_files(age, format!("manifests/{}", ns).as_ref()).await
+		}
+	}
 }
 
 #[derive(Debug, Deserialize, Serialize)]

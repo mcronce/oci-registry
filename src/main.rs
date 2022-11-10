@@ -1,12 +1,20 @@
 #![allow(unused_parens)]
+use core::time::Duration;
+
 use actix_web::dev::Service;
 use actix_web::http::header::HeaderName;
 use actix_web::http::header::HeaderValue;
 use actix_web::web;
 use clap::Parser;
 use compact_str::CompactString;
+use futures::future::join_all;
+use futures::future::BoxFuture;
 use futures::future::FutureExt;
+use tokio::sync::oneshot;
 use tokio::sync::Mutex;
+use tracing::error;
+use tracing::info;
+use tracing::warn;
 
 mod api;
 mod image;
@@ -45,8 +53,46 @@ async fn main() {
 
 	tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::from_default_env()).compact().init();
 
-	let repo = web::Data::new(config.storage.repository());
-	let upstream = web::Data::new(Mutex::new(config.upstream.clients().await.unwrap()));
+	let repo = config.storage.repository();
+	let upstream = config.upstream.clients().await.unwrap();
+	let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+	let background = {
+		let repo = repo.clone();
+		let upstream = upstream.invalidation_config();
+		tokio::task::spawn(async move {
+			let mut interval = tokio::time::interval(Duration::from_secs(120));
+			loop {
+				tokio::select! {
+					_ = interval.tick() => (),
+					_ = &mut shutdown_rx => break
+				};
+				let mut tasks: Vec<BoxFuture<'_, _>> = Vec::with_capacity(upstream.manifests.len() + 1);
+				tasks.push(Box::pin(repo.delete_old_blobs(upstream.blob)));
+				for (ns, age) in upstream.manifests.iter() {
+					tasks.push(Box::pin(repo.delete_old_manifests(ns, *age)));
+				}
+				let count: usize = join_all(tasks)
+					.await
+					.into_iter()
+					.map(|r| match r {
+						Ok(v) => v,
+						Err(e) => {
+							error!("Error in background cleanup task:  {e}");
+							0
+						}
+					})
+					.sum();
+				if (count > 0) {
+					warn!("Aged out {count} objects");
+				} else {
+					info!("Aged out {count} objects");
+				}
+			}
+		})
+	};
+
+	let repo = web::Data::new(repo);
+	let upstream = web::Data::new(Mutex::new(upstream));
 	let default_namespace = web::Data::new(config.default_namespace);
 
 	let server = actix_web::HttpServer::new(move || {
@@ -78,4 +124,6 @@ async fn main() {
 			.route("/r", web::get().to(health_ready))
 	});
 	server.shutdown_timeout(10).bind(&format!("0.0.0.0:{}", config.port)).unwrap().run().await.unwrap();
+	shutdown_tx.send(()).unwrap();
+	background.await.unwrap();
 }

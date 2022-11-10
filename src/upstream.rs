@@ -38,12 +38,35 @@ impl Clients {
 		self.0.insert(key, config.try_into()?);
 		Ok(())
 	}
+
+	pub fn invalidation_config(&self) -> InvalidationConfig {
+		let mut config = InvalidationConfig {
+			blob: core::time::Duration::from_secs(10),
+			manifests: HashMap::with_capacity(self.0.len())
+		};
+		for (ns, client) in self.0.iter() {
+			if (ns.is_empty()) {
+				continue;
+			}
+			config.manifests.insert(ns.clone(), client.manifest_invalidation_time);
+			if (client.blob_invalidation_time > config.blob) {
+				config.blob = client.blob_invalidation_time;
+			}
+		}
+		config
+	}
 }
 
 impl FromIterator<(CompactString, Client)> for Clients {
 	fn from_iter<T: IntoIterator<Item = (CompactString, Client)>>(iter: T) -> Self {
 		Self(iter.into_iter().collect())
 	}
+}
+
+#[derive(Clone, Debug)]
+pub struct InvalidationConfig {
+	pub blob: core::time::Duration,
+	pub manifests: HashMap<CompactString, core::time::Duration>
 }
 
 const fn truth() -> bool {

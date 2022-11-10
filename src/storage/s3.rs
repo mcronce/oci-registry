@@ -160,7 +160,7 @@ impl Repository {
 
 	pub async fn read(self, object: &str, invalidation: Duration) -> Result<ReadStream, super::Error> {
 		let obj = self.get_object(object).await?;
-		let time = OffsetDateTime::parse(&obj.last_modified.unwrap(), &Rfc2822)?;
+		let time = obj.last_modified.map(|s| OffsetDateTime::parse(&s, &Rfc2822)).transpose()?.unwrap_or(OffsetDateTime::UNIX_EPOCH);
 		let age = Duration::try_from(SystemTime::now() - time).unwrap_or_default();
 		if (age > invalidation) {
 			return Err(super::Error::ObjectTooOld(age.into()));

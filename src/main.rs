@@ -60,7 +60,7 @@ async fn main() {
 		let repo = repo.clone();
 		let upstream = upstream.invalidation_config();
 		tokio::task::spawn(async move {
-			let mut interval = tokio::time::interval(Duration::from_secs(120));
+			let mut interval = tokio::time::interval(Duration::from_secs(300));
 			loop {
 				tokio::select! {
 					_ = interval.tick() => (),

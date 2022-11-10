@@ -19,7 +19,7 @@ variables:
 
 cargo build and cargo test:
   stage: build
-  image: rust
+  image: rust:1.65
   cache:
     - key: rust
       paths:

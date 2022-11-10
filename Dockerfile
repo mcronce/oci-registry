@@ -23,6 +23,7 @@ RUN \
 
 COPY src /repo/src
 
+ENV RUST_LOG=info,actix-web=debug
 RUN \
 	touch src/main.rs && \
 	cargo pgo build && \

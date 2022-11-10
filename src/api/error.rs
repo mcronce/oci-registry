@@ -12,6 +12,8 @@ pub enum Error {
 	Upstream(#[from] dkregistry::errors::Error),
 	#[error("Not found")]
 	InvalidDigest,
+	#[error("Missing Content-Length header from upstream")]
+	MissingContentLength,
 	#[error("I/O error: {0}")]
 	Io(#[from] std::io::Error),
 	#[error("JSON error: {0}")]
@@ -24,6 +26,7 @@ impl actix_web::ResponseError for Error {
 			Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::Upstream(_) => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::InvalidDigest => StatusCode::NOT_FOUND,
+			Self::MissingContentLength => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::Json(_) => StatusCode::INTERNAL_SERVER_ERROR
 		}

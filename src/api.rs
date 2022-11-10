@@ -129,7 +129,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
 	let response = upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref()).await?;
 
-	let len = response.size().unwrap_or_default();
+	let len = response.size().ok_or(Error::MissingContentLength)?;
 	let (tx, rx) = async_broadcast::broadcast(16);
 	{
 		let mut stream = response.stream();

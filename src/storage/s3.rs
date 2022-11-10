@@ -27,22 +27,22 @@ pub struct Config {
 	#[clap(env = "S3_HOST", long)]
 	host: Option<String>,
 	#[clap(env = "S3_ACCESS_KEY", long)]
-	access_key: String,
+	access_key: CompactString,
 	#[clap(env = "S3_SECRET_KEY", long)]
 	secret_key: String,
 	#[clap(env = "S3_REGION", long, default_value = "us-east-1")]
-	region: String,
+	region: CompactString,
 	#[clap(env = "S3_BUCKET", long)]
-	bucket: String
+	bucket: CompactString
 }
 
 impl Config {
 	pub fn repository(&self) -> Repository {
 		let region = match self.host.clone() {
-			Some(s) => Region::Custom { name: self.region.clone(), endpoint: s },
+			Some(s) => Region::Custom { name: self.region.to_string(), endpoint: s },
 			None => Region::from_str(&self.region).unwrap()
 		};
-		let creds = StaticProvider::new(self.access_key.clone(), self.secret_key.clone(), None, None);
+		let creds = StaticProvider::new(self.access_key.to_string(), self.secret_key.clone(), None, None);
 		let http = HttpClient::new().unwrap();
 		Repository {
 			inner: S3Client::new_with(http, creds, region),
@@ -54,13 +54,13 @@ impl Config {
 #[derive(Clone)]
 pub struct Repository {
 	inner: S3Client,
-	bucket: String
+	bucket: CompactString
 }
 
 impl Repository {
 	async fn get_object(&self, object: &str) -> Result<GetObjectOutput, RusotoError<GetObjectError>> {
 		let req = GetObjectRequest {
-			bucket: self.bucket.clone(),
+			bucket: self.bucket.to_string(),
 			key: object.into(),
 			..Default::default()
 		};
@@ -85,7 +85,7 @@ impl Repository {
 		super::Error: From<E>
 	{
 		let req = PutObjectRequest {
-			bucket: self.bucket.clone(),
+			bucket: self.bucket.to_string(),
 			key: object.into(),
 			content_length: Some(length),
 			body: Some(ByteStream::new(reader.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))),

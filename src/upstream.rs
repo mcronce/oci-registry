@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use camino::Utf8PathBuf;
 use clap::Parser;
+use compact_str::CompactString;
 use dkregistry::errors::Error;
 use dkregistry::v2::Client as InnerClient;
 use humantime::Duration;
@@ -19,30 +20,28 @@ pub struct Client {
 	pub blob_invalidation_time: core::time::Duration
 }
 
-pub struct Clients(HashMap<String, Client>);
+pub struct Clients(HashMap<CompactString, Client>);
 impl Clients {
 	pub fn get(&mut self, key: Option<&str>) -> Result<Client, Error> {
-		match key {
-			Some(key) => match self.0.get(key) {
-				Some(v) => Ok(v.clone()),
-				None => {
-					warn!("Unknown namespace '{}' passed; configuring with default settings", key);
-					self.insert(key.to_string(), SingleUpstreamConfig::new(key))?;
-					Ok(self.0.get(key).unwrap().clone())
-				}
-			},
-			None => self.get(Some(""))
+		let key = key.unwrap_or_default();
+		match self.0.get(key) {
+			Some(v) => Ok(v.clone()),
+			None => {
+				warn!("Unknown namespace '{}' passed; configuring with default settings", key);
+				self.insert(key.into(), SingleUpstreamConfig::new(key.into()))?;
+				Ok(self.0.get(key).unwrap().clone())
+			}
 		}
 	}
 
-	fn insert(&mut self, key: String, config: SingleUpstreamConfig) -> Result<(), Error> {
+	fn insert(&mut self, key: CompactString, config: SingleUpstreamConfig) -> Result<(), Error> {
 		self.0.insert(key, config.try_into()?);
 		Ok(())
 	}
 }
 
-impl FromIterator<(String, Client)> for Clients {
-	fn from_iter<T: IntoIterator<Item = (String, Client)>>(iter: T) -> Self {
+impl FromIterator<(CompactString, Client)> for Clients {
+	fn from_iter<T: IntoIterator<Item = (CompactString, Client)>>(iter: T) -> Self {
 		Self(iter.into_iter().collect())
 	}
 }
@@ -62,8 +61,8 @@ fn default_blob_invalidation_time() -> Duration {
 #[serde_as]
 #[derive(Clone, Debug, Deserialize)]
 pub struct SingleUpstreamConfig {
-	namespace: String,
-	host: String,
+	namespace: CompactString,
+	host: CompactString,
 	#[serde(default = "truth")]
 	tls: bool,
 	#[serde(default)]
@@ -83,14 +82,14 @@ pub struct SingleUpstreamConfig {
 }
 
 impl SingleUpstreamConfig {
-	fn new(namespace: &str) -> Self {
-		Self::with_host(namespace, namespace)
+	fn new(namespace: CompactString) -> Self {
+		Self::with_host(namespace.clone(), namespace)
 	}
 
-	fn with_host(namespace: &str, host: &str) -> Self {
+	fn with_host(namespace: CompactString, host: CompactString) -> Self {
 		Self {
-			namespace: namespace.to_owned(),
-			host: host.to_owned(),
+			namespace,
+			host,
 			tls: true,
 			accept_invalid_certs: false,
 			user_agent: None,
@@ -127,7 +126,7 @@ pub struct UpstreamConfig {
 	#[clap(env, long, default_value = "docker.io")]
 	/// For requests made without a namespace (I'm looking at you, Docker), this namespace will be
 	/// used.
-	default_upstream_namespace: String,
+	default_upstream_namespace: CompactString,
 	#[clap(env, long)]
 	/// If not passed, will default to a configuration that works for Docker Hub.  If a client
 	/// passes in a `ns` parameter that isn't found in the configuration, the namespace will be

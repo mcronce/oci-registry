@@ -83,7 +83,7 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 
 pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>, default_ns: web::Data<CompactString>) -> Result<HttpResponse, Error> {
 	let mut upstream = upstream.lock().await.get(qstr.ns.as_deref())?;
-	let manifest = get_manifest(req.as_ref(), upstream.manifest_invalidation_time, repo.as_ref(), &mut upstream.client, qstr.ns.as_ref().unwrap_or_else(|| default_ns.as_ref())).await?;
+	let manifest = get_manifest(req.as_ref(), upstream.manifest_invalidation_time, repo.as_ref(), &mut upstream.client, qstr.ns.as_deref().unwrap_or_else(|| default_ns.as_ref())).await?;
 
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, manifest.media_type.to_string()));

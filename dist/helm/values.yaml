@@ -39,9 +39,6 @@ registry:
         secret_key:
       region: us-east-1
       bucket: oci-registry
-  invalidation_time:
-    manifests: 14d
-    blobs: 14d
 
 service:
   port: 80

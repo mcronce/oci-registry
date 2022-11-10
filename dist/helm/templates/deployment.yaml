@@ -46,10 +46,6 @@ spec:
           {{- else }}
           {{- fail "registry.storage.mode must be either 's3' or 'filesystem'" -}}
           {{- end }}
-            - name: MANIFEST_INVALIDATION_TIME
-              value: {{ .Values.registry.invalidation_time.manifests | quote }}
-            - name: BLOB_INVALIDATION_TIME
-              value: {{ .Values.registry.invalidation_time.blobs | quote }}
             - name: UPSTREAM_CONFIG_FILE
               value: /upstream.yaml
             - name: DEFAULT_UPSTREAM_NAMESPACE

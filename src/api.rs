@@ -70,7 +70,11 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 	}
 
 	authenticate_with_upstream(upstream, &format!("repository:{}:pull", req.image.as_ref())).await?;
-	let (manifest, media_type, digest) = upstream.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string(), Some(namespace)).await?;
+	let (manifest, media_type, digest) = match upstream.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string(), Some(namespace)).await {
+		Ok(v) => v,
+		Err(dkregistry::errors::Error::Reqwest(_)) => upstream.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string(), None).await?,
+		Err(e) => return Err(e.into())
+	};
 	let manifest = Manifest::new(manifest, media_type, digest);
 
 	let body = serde_json::to_vec(&manifest).unwrap();
@@ -127,7 +131,11 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 
 	let mut upstream = upstream.lock().await.get(qstr.ns.as_deref())?;
 	authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
-	let response = upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), qstr.ns.as_deref()).await?;
+	let response = match upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), qstr.ns.as_deref()).await {
+		Ok(v) => v,
+		Err(dkregistry::errors::Error::Reqwest(_)) => upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), None).await?,
+		Err(e) => return Err(e.into())
+	};
 
 	let len = response.size().ok_or(Error::MissingContentLength)?;
 	let (tx, rx) = async_broadcast::broadcast(16);

@@ -88,7 +88,7 @@ async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
 				0
 			}
 		})
-	.sum();
+		.sum();
 	if (count > 0) {
 		warn!("Aged out {count} objects");
 	} else {

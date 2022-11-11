@@ -25,6 +25,7 @@ mod storage;
 mod upstream;
 
 use storage::StorageConfig;
+use upstream::InvalidationConfig;
 use upstream::UpstreamConfig;
 
 #[derive(Clone, Debug)]
@@ -71,6 +72,30 @@ async fn health_ready() -> Result<&'static str, api::error::Error> {
 	Ok("")
 }
 
+async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
+	let mut tasks: Vec<BoxFuture<'_, _>> = Vec::with_capacity(upstream.manifests.len() + 1);
+	tasks.push(Box::pin(repo.delete_old_blobs(upstream.blob)));
+	for (ns, age) in upstream.manifests.iter() {
+		tasks.push(Box::pin(repo.delete_old_manifests(ns, *age)));
+	}
+	let count: usize = join_all(tasks)
+		.await
+		.into_iter()
+		.map(|r| match r {
+			Ok(v) => v,
+			Err(e) => {
+				error!("Error in background cleanup task:  {e}");
+				0
+			}
+		})
+	.sum();
+	if (count > 0) {
+		warn!("Aged out {count} objects");
+	} else {
+		info!("Aged out {count} objects");
+	}
+}
+
 #[actix_web::main]
 async fn main() {
 	let config = Config::parse();
@@ -90,27 +115,7 @@ async fn main() {
 					_ = interval.tick() => (),
 					_ = &mut shutdown_rx => break
 				};
-				let mut tasks: Vec<BoxFuture<'_, _>> = Vec::with_capacity(upstream.manifests.len() + 1);
-				tasks.push(Box::pin(repo.delete_old_blobs(upstream.blob)));
-				for (ns, age) in upstream.manifests.iter() {
-					tasks.push(Box::pin(repo.delete_old_manifests(ns, *age)));
-				}
-				let count: usize = join_all(tasks)
-					.await
-					.into_iter()
-					.map(|r| match r {
-						Ok(v) => v,
-						Err(e) => {
-							error!("Error in background cleanup task:  {e}");
-							0
-						}
-					})
-					.sum();
-				if (count > 0) {
-					warn!("Aged out {count} objects");
-				} else {
-					info!("Aged out {count} objects");
-				}
+				cleanup(&upstream, &repo).await;
 			}
 		})
 	};

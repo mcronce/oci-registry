@@ -67,6 +67,8 @@ Build container image:
   after_script:
     - docker rmi -f "mcronce/oci-registry-builder"
     - docker rmi -f "mcronce/oci-registry"
+  only:
+    - tags
 
 Lint chart:
   stage: build
@@ -92,7 +94,6 @@ Push container image:
   after_script:
     - docker rmi -f "mcronce/oci-registry" "mcronce/oci-registry:${CI_COMMIT_TAG:-latest}"
   only:
-    - master
     - tags
 
 Push chart:

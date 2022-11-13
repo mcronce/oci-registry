@@ -12,7 +12,7 @@ variables:
   DOCKER_DRIVER: overlay2
   DOCKER_HOST: tcp://localhost:2375
   DOCKER_TLS_CERTDIR: ""
-  RUSTC_WRAPPER: /sccache
+  RUSTC_WRAPPER: /usr/bin/sccache
   SCCACHE_ENDPOINT: rgw.storage.home.quadra-tec.net:7480
   SCCACHE_S3_USE_SSL: "off"
   SCCACHE_BUCKET: gitlab-sccache
@@ -42,7 +42,7 @@ cargo build and cargo test:
   after_script:
     - if [ ! -d .cargo ]; then mkdir .cargo; fi
     - time mv -f /usr/local/cargo/registry .cargo/
-    - /sccache -s
+    - /usr/bin/sccache -s
 
 Build container image:
   stage: build

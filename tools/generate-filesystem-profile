@@ -6,7 +6,7 @@ rm -Rf test/*
 RUST_LOG=info,actix-web=debug
 RUST_BACKTRACE=1
 "./target/x86_64-unknown-linux-gnu/release/oci-registry${1}" \
-	--port 16385 \
+	--listen 0.0.0.0:16385 \
 	--upstream-config-file=testdata/upstream.yaml \
 	filesystem \
 	--root=test \
@@ -17,7 +17,7 @@ sleep 0.1
 "${DIR}/make-test-requests" http://localhost:16385 | sed 's/^/[fs] /'
 sleep 2
 echo '[fs] done requests'
-ps -ef | grep "oci-registry${1}" | grep -- '--port 16385' | awk '{print $2}' | xargs kill
+ps -ef | grep "oci-registry${1}" | grep -- '0\.0\.0\.0:16385' | awk '{print $2}' | xargs kill
 echo '[fs] killed oci-registry'
 sleep 0.5
 

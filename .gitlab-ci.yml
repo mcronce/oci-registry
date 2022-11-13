@@ -19,13 +19,12 @@ variables:
 
 cargo build and cargo test:
   stage: build
-  image: rust:1.65
+  image: mcronce/rust-pgo:1.65
   cache:
     - key: rust
       paths:
         - .cargo
   before_script:
-    - tools/maybe-download-sccache
     - apt-get update
     - apt-get install -y cmake
     - |

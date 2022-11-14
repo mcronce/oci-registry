@@ -14,10 +14,17 @@ RUST_BACKTRACE=1
 pid="$!"
 sleep 0.1
 
+while true; do
+	echo | ncat localhost 16385
+	sleep 0.1
+done &
+loop_pid="$!"
+
 "${DIR}/make-test-requests" http://localhost:16385 | sed 's/^/[fs] /'
 sleep 2
 echo '[fs] done requests'
 ps -ef | grep "oci-registry${1}" | grep -- '0\.0\.0\.0:16385' | awk '{print $2}' | xargs kill
 echo '[fs] killed oci-registry'
+kill "$loop_pid"
 sleep 0.5
 

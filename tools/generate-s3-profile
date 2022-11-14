@@ -15,10 +15,17 @@ RUST_BACKTRACE=1
 	| sed 's/^/[s3] /' &
 sleep 0.1
 
+while true; do
+	echo | ncat localhost 16384
+	sleep 0.1
+done &
+loop_pid="$!"
+
 "${DIR}/make-test-requests" http://localhost:16384 | sed 's/^/[s3] /'
 sleep 2
 echo '[s3] done requests'
 ps -ef | grep "oci-registry${1}" | grep -- '0\.0\.0\.0:16384' | awk '{print $2}' | xargs kill
 echo '[s3] killed oci-registry'
+kill "$loop_pid"
 sleep 0.5
 

@@ -62,12 +62,7 @@ struct Config {
 }
 
 #[inline]
-async fn health_alive() -> &'static str {
-	""
-}
-
-#[inline]
-async fn health_ready() -> Result<&'static str, api::error::Error> {
+async fn health() -> Result<&'static str, api::error::Error> {
 	// TODO:  Check upstream and storage
 	Ok("")
 }
@@ -149,8 +144,7 @@ async fn main() {
 						})
 					})
 			)
-			.route("/l", web::get().to(health_alive))
-			.route("/r", web::get().to(health_ready))
+			.route("/", web::get().to(health))
 	});
 	match config.listen {
 		Listen::Network(addr) => server.shutdown_timeout(10).bind(&addr).unwrap().run().await.unwrap(),

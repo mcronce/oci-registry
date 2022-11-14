@@ -270,5 +270,4 @@
       1 GET /v2/bitnami/influxdb/blobs/sha256:eeccb1d8eb3efcf00435c76ea1cfda24c1bcaae5a51a7fa6fc8657799cb121c7?ns=docker.io
       1 GET /v2/bitnami/influxdb/blobs/sha256:4558827fa8f489ef39a54338cfcb48507550d60192a7f17a4361b54a4d2a59c4?ns=docker.io
       1 GET /v2/bitnami/influxdb/blobs/sha256:1d8866550bdd02551d6874e99aa828dd95b7434c6a25168765d46251cc230469?ns=docker.io
-  24717 GET /l
-  24716 GET /r
+  24717 GET /

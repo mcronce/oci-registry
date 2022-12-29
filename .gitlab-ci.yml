@@ -44,11 +44,11 @@ cargo build and cargo test:
     - time mv -f /usr/local/cargo/registry .cargo/
     - /usr/bin/sccache -s
 
-Build container image:
+Build x86-64 container image:
   stage: build
   image: docker:20-git
   cache:
-    - key: docker
+    - key: docker-amd64
       policy: push
       paths:
         - images
@@ -60,12 +60,37 @@ Build container image:
     - |
       BUILD_ARGS="--build-arg=CARGO_INCREMENTAL --build-arg=RUSTC_WRAPPER --build-arg=SCCACHE_ENDPOINT --build-arg=SCCACHE_BUCKET --build-arg=AWS_ACCESS_KEY_ID --build-arg=AWS_SECRET_ACCESS_KEY"
       docker build $BUILD_ARGS --cache-from "mcronce/oci-registry-builder" --target=builder -t "mcronce/oci-registry-builder" .
-      docker build $BUILD_ARGS --cache-from "mcronce/oci-registry-builder" --cache-from "mcronce/oci-registry" -t "mcronce/oci-registry:latest" .
+      docker build $BUILD_ARGS --cache-from "mcronce/oci-registry-builder" --cache-from "mcronce/oci-registry" -t "mcronce/oci-registry:amd64" .
     - mkdir -pv images
-    - time docker save "mcronce/oci-registry:latest" | gzip > images/release.tar.gz
+    - time docker save "mcronce/oci-registry:amd64" | gzip > images/release.amd64.tar.gz
   after_script:
     - docker rmi -f "mcronce/oci-registry-builder"
-    - docker rmi -f "mcronce/oci-registry:latest"
+    - docker rmi -f "mcronce/oci-registry:amd64"
+  only:
+    - tags
+
+Build aarch64 container image:
+  stage: build
+  image: docker:20-git
+  cache:
+    - key: docker-arm64v8
+      policy: push
+      paths:
+        - images
+  before_script:
+    - docker version
+    - apk add -U bash coreutils
+    - bash -ec 'find Cargo.toml src ui -type f | while read file; do revision="$(git rev-list -n 1 HEAD "${file}")"; timestamp="$(git show --pretty=format:%ai --abbrev-commit "${revision}" | head -n1)"; touch -d "${timestamp}" "${file}"; done'
+  script:
+    - |
+      BUILD_ARGS="--build-arg=CARGO_INCREMENTAL --build-arg=RUSTC_WRAPPER --build-arg=SCCACHE_ENDPOINT --build-arg=SCCACHE_BUCKET --build-arg=AWS_ACCESS_KEY_ID --build-arg=AWS_SECRET_ACCESS_KEY"
+      docker build $BUILD_ARGS -f Dockerfile.aarch64 --cache-from "mcronce/oci-registry-builder" --target=builder -t "mcronce/oci-registry-builder" .
+      docker build $BUILD_ARGS -f Dockerfile.aarch64 --cache-from "mcronce/oci-registry-builder" --cache-from "mcronce/oci-registry" -t "mcronce/oci-registry:arm64v8" .
+    - mkdir -pv images
+    - time docker save "mcronce/oci-registry:arm64v8" | gzip > images/release.arm64v8.tar.gz
+  after_script:
+    - docker rmi -f "mcronce/oci-registry-builder"
+    - docker rmi -f "mcronce/oci-registry:arm64v8"
   only:
     - tags
 
@@ -79,20 +104,27 @@ Push container image:
   stage: deploy
   image: docker:20-git
   cache:
-    - key: docker
+    - key: docker-amd64
       policy: pull
       paths:
         - images/release.tar.gz
   before_script:
     - docker version
     - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-    - zcat images/release.tar.gz | docker load
+    - zcat images/release.amd64.tar.gz | docker load
   script:
-    - docker tag "mcronce/oci-registry:latest" "mcronce/oci-registry:${CI_COMMIT_TAG}"
-    - docker push "mcronce/oci-registry:latest"
-    - docker push "mcronce/oci-registry:${CI_COMMIT_TAG}"
+    - docker tag "mcronce/oci-registry:amd64" "mcronce/oci-registry:${CI_COMMIT_TAG}-amd64"
+    - docker tag "mcronce/oci-registry:arm64v8" "mcronce/oci-registry:${CI_COMMIT_TAG}-arm64v8"
+    - docker push "mcronce/oci-registry:amd64"
+    - docker push "mcronce/oci-registry:arm64v8"
+    - docker push "mcronce/oci-registry:${CI_COMMIT_TAG}-amd64"
+    - docker push "mcronce/oci-registry:${CI_COMMIT_TAG}-arm64v8"
+    - docker manifest create "mcronce/oci-registry:latest" --amend "mcronce/oci-registry:amd64" --amend "mcronce/oci-registry:arm64v8"
+    - docker manifest create "mcronce/oci-registry:${CI_COMMIT_TAG}" --amend "mcronce/oci-registry:${CI_COMMIT_TAG}-amd64" --amend "mcronce/oci-registry:${CI_COMMIT_TAG}-arm64v8"
   after_script:
-    - docker rmi -f "mcronce/oci-registry:latest" "mcronce/oci-registry:${CI_COMMIT_TAG}"
+    - docker rmi -f "mcronce/oci-registry:amd64" "mcronce/oci-registry:${CI_COMMIT_TAG}-amd64"
+    - docker rmi -f "mcronce/oci-registry:arm64v8" "mcronce/oci-registry:${CI_COMMIT_TAG}-arm64v8"
+    - docker manifest rm "mcronce/oci-registry:latest" "mcronce/oci-registry:${CI_COMMIT_TAG}"
   only:
     - tags
 

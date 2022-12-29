@@ -109,11 +109,16 @@ Push container image:
     - key: docker-amd64
       policy: pull
       paths:
-        - images/release.tar.gz
+        - images/release.amd64.tar.gz
+    - key: docker-arm64v8
+      policy: pull
+      paths:
+        - images/release.arm64v8.tar.gz
   before_script:
     - docker version
     - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
     - zcat images/release.amd64.tar.gz | docker load
+    - zcat images/release.arm64v8.tar.gz | docker load
   script:
     - docker tag "mcronce/oci-registry:amd64" "mcronce/oci-registry:${CI_COMMIT_TAG}-amd64"
     - docker tag "mcronce/oci-registry:arm64v8" "mcronce/oci-registry:${CI_COMMIT_TAG}-arm64v8"

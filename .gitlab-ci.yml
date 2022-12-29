@@ -82,7 +82,7 @@ Push container image:
     - key: docker
       policy: pull
       paths:
-        - images/release.tar
+        - images/release.tar.gz
   before_script:
     - docker version
     - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin

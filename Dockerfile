@@ -1,4 +1,4 @@
-FROM mcronce/rust-pgo:1.65 AS builder
+FROM mcronce/rust-pgo:1.66 AS builder
 
 ARG \
 	RUSTC_WRAPPER \
@@ -8,7 +8,7 @@ ARG \
 	AWS_ACCESS_KEY_ID \
 	AWS_SECRET_ACCESS_KEY
 
-RUN apt-get update && apt-get install -y cmake s3cmd ncat
+RUN apt-get update && apt-get install -y s3cmd ncat
 
 WORKDIR /repo
 

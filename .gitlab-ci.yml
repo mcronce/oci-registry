@@ -67,7 +67,6 @@ Build x86-64 container image:
     - docker rmi -f "mcronce/oci-registry-builder"
     - docker rmi -f "mcronce/oci-registry:amd64"
   only:
-    - master
     - tags
 
 Build aarch64 container image:
@@ -93,7 +92,6 @@ Build aarch64 container image:
     - docker rmi -f "mcronce/oci-registry-builder"
     - docker rmi -f "mcronce/oci-registry:arm64v8"
   only:
-    - master
     - tags
 
 Lint chart:
@@ -144,7 +142,6 @@ Push container image:
         docker manifest rm "mcronce/oci-registry:${CI_COMMIT_TAG}"
       fi
   only:
-    - master
     - tags
 
 Push chart:

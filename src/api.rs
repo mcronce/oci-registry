@@ -112,7 +112,7 @@ impl BlobRequest {
 		let (method, hash) = self.digest.split_once(':').unwrap_or(("_", &self.digest));
 		let hash_prefix = hash.get(..2).unwrap_or("_");
 		let rest_of_hash = hash.get(2..).unwrap_or(hash);
-		format!("blobs/{}/{}/{}", method, hash_prefix, rest_of_hash).into()
+		format!("blobs/{method}/{hash_prefix}/{rest_of_hash}").into()
 	}
 }
 

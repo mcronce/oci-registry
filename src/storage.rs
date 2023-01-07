@@ -91,8 +91,8 @@ impl Repository {
 
 	pub async fn delete_old_manifests(&self, ns: &str, age: Duration) -> Result<usize, Error> {
 		match self {
-			Self::S3(r) => r.delete_old_objects(age, &format!("manifests/{}", ns)).await,
-			Self::Filesystem(r) => r.delete_old_files(age, format!("manifests/{}", ns).as_ref()).await
+			Self::S3(r) => r.delete_old_objects(age, &format!("manifests/{ns}")).await,
+			Self::Filesystem(r) => r.delete_old_files(age, format!("manifests/{ns}").as_ref()).await
 		}
 	}
 }

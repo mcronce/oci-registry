@@ -71,7 +71,7 @@ impl fmt::Display for ImageReference {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Tag(s) => s.fmt(f),
-			Self::Sha256(s) => write!(f, "sha256:{}", s)
+			Self::Sha256(s) => write!(f, "sha256:{s}")
 		}
 	}
 }

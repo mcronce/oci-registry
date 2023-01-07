@@ -52,6 +52,20 @@ spec:
               value: {{ .Values.registry.upstream.default_namespace | quote }}
             - name: RUST_LOG
               value: info,actix-web=debug
+            {{- if .Values.resources.limits.cpu }}
+            - name: TOKIO_WORKER_THREADS
+              {{- if typeIs "string" .Values.resources.limits.cpu }}
+              {{- $trimmed := trimSuffix "m" .Values.resources.limits.cpu }}
+              {{- $value := ternary (float64 $trimmed | ceil | mul 1000) $trimmed (contains "." $trimmed) | int64 }}
+              {{- if eq (mod $value 1000) 0 }}
+              value: {{ div $value 1000 | quote }}
+              {{- else }}
+              value: {{ add1 (div $value 1000) | quote }}
+              {{- end }}
+              {{- else }}
+              value: {{ .Values.resources.limits.cpu | quote }}
+              {{- end }}
+            {{- end }}
           ports:
             - name: http
               containerPort: 80

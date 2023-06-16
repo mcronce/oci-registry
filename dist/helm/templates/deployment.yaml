@@ -65,6 +65,10 @@ spec:
               {{- else }}
               value: {{ .Values.resources.limits.cpu | quote }}
               {{- end }}
+            {{- range .Values.extraEnv }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
             {{- end }}
           ports:
             - name: http
@@ -98,4 +102,3 @@ spec:
         {{- toYaml .Values.affinity | nindent 8 }}
       tolerations:
         {{- toYaml .Values.tolerations | nindent 8 }}
-

@@ -1,12 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name:  {{ template "oci-registry.fullname" . }}
+  name: {{ template "oci-registry.fullname" . }}
   labels:
     {{- include "oci-registry.labels" . | nindent 4 }}
     helm.sh/chart: {{ template "oci-registry.chart" . }}
 spec:
-  replicas: {{ .Values.replicas}}
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       {{- include "oci-registry.labels" . | nindent 6 }}
@@ -46,26 +46,30 @@ spec:
           {{- else }}
           {{- fail "registry.storage.mode must be either 's3' or 'filesystem'" -}}
           {{- end }}
-            - name: UPSTREAM_CONFIG_FILE
-              value: /upstream.yaml
-            - name: DEFAULT_UPSTREAM_NAMESPACE
-              value: {{ .Values.registry.upstream.default_namespace | quote }}
-            - name: RUST_LOG
-              value: info,actix-web=debug
-            {{- if .Values.resources.limits.cpu }}
-            - name: TOKIO_WORKER_THREADS
-              {{- if typeIs "string" .Values.resources.limits.cpu }}
-              {{- $trimmed := trimSuffix "m" .Values.resources.limits.cpu }}
-              {{- $value := ternary (float64 $trimmed | ceil | mul 1000) $trimmed (contains "." $trimmed) | int64 }}
-              {{- if eq (mod $value 1000) 0 }}
-              value: {{ div $value 1000 | quote }}
-              {{- else }}
-              value: {{ add1 (div $value 1000) | quote }}
-              {{- end }}
-              {{- else }}
-              value: {{ .Values.resources.limits.cpu | quote }}
-              {{- end }}
+          - name: UPSTREAM_CONFIG_FILE
+            value: /upstream.yaml
+          - name: DEFAULT_UPSTREAM_NAMESPACE
+            value: {{ .Values.registry.upstream.default_namespace | quote }}
+          - name: RUST_LOG
+            value: info,actix-web=debug
+          {{- range .Values.extraEnv }}
+          - name: {{ .name }}
+            value: {{ .value | quote }}
+          {{- end }}
+          {{- if .Values.resources.limits.cpu }}
+          - name: TOKIO_WORKER_THREADS
+            {{- if typeIs "string" .Values.resources.limits.cpu }}
+            {{- $trimmed := trimSuffix "m" .Values.resources.limits.cpu }}
+            {{- $value := ternary (float64 $trimmed | ceil | mul 1000) $trimmed (contains "." $trimmed) | int64 }}
+            {{- if eq (mod $value 1000) 0 }}
+            value: {{ div $value 1000 | quote }}
+            {{- else }}
+            value: {{ add1 (div $value 1000) | quote }}
             {{- end }}
+            {{- else }}
+            value: {{ .Values.resources.limits.cpu | quote }}
+            {{- end }}
+          {{- end }}
           ports:
             - name: http
               containerPort: 80
@@ -98,4 +102,3 @@ spec:
         {{- toYaml .Values.affinity | nindent 8 }}
       tolerations:
         {{- toYaml .Values.tolerations | nindent 8 }}
-

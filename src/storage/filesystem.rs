@@ -63,7 +63,7 @@ impl Repository {
 			Box::pin(try_stream! {
 				loop {
 					let buf = file.fill_buf().await?;
-					if(buf.len() == 0) {
+					if(buf.is_empty()) {
 						break;
 					}
 					let len = buf.len();

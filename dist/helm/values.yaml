@@ -52,6 +52,7 @@ service:
   loadBalancerSourceRanges: []
 
 extraLabels: {}
+extraEnv: []
 
 ingress:
   enabled: false

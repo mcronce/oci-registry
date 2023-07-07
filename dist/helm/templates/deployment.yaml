@@ -4,7 +4,6 @@ metadata:
   name: {{ template "oci-registry.fullname" . }}
   labels:
     {{- include "oci-registry.labels" . | nindent 4 }}
-    helm.sh/chart: {{ template "oci-registry.chart" . }}
 spec:
   replicas: {{ .Values.replicas }}
   selector:

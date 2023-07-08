@@ -18,7 +18,7 @@ RUN \
 	echo 'fn main() {}' > /repo/src/main.rs && \
 	cargo update && \
 	cargo pgo build && \
-	bash -exc "if [ '${RUSTC_WRAPPER}' == '/sccache' ]; then /sccache -s; fi" && \
+	bash -exc "if [ '${RUSTC_WRAPPER}' == '/usr/bin/sccache' ]; then /usr/bin/sccache -s; fi" && \
 	rm -Rvf /repo/src
 
 COPY src /repo/src
@@ -27,7 +27,7 @@ ENV RUST_LOG=info,actix-web=debug
 RUN \
 	touch src/main.rs && \
 	cargo pgo build && \
-	bash -exc "if [ '${RUSTC_WRAPPER}' == '/sccache' ]; then /sccache -s; fi"
+	bash -exc "if [ '${RUSTC_WRAPPER}' == '/usr/bin/sccache' ]; then /usr/bin/sccache -s; fi"
 
 ADD tools /repo/tools
 ADD testdata /repo/testdata
@@ -39,12 +39,12 @@ RUN \
 
 RUN \
 	cargo pgo bolt build --with-pgo && \
-	bash -exc "if [ '${RUSTC_WRAPPER}' == '/sccache' ]; then /sccache -s; fi" && \
+	bash -exc "if [ '${RUSTC_WRAPPER}' == '/usr/bin/sccache' ]; then /usr/bin/sccache -s; fi" && \
 	./tools/generate-profiles -bolt-instrumented | sed 's/^/[bolt] /'
 
 RUN \
 	cargo pgo bolt optimize --with-pgo && \
-	bash -exc "if [ '${RUSTC_WRAPPER}' == '/sccache' ]; then /sccache -s; fi"
+	bash -exc "if [ '${RUSTC_WRAPPER}' == '/usr/bin/sccache' ]; then /usr/bin/sccache -s; fi"
 
 RUN strip /repo/target/x86_64-unknown-linux-gnu/release/oci-registry-bolt-optimized
 

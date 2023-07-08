@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "oci-registry.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.replicas}}
+  replicas: {{ .Values.replicas }}
   selector:
     matchLabels:
       {{- include "oci-registry.labels" . | nindent 6 }}

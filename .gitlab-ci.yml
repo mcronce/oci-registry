@@ -59,8 +59,8 @@ Build x86-64 container image:
   script:
     - |
       BUILD_ARGS="--build-arg=CARGO_INCREMENTAL --build-arg=RUSTC_WRAPPER --build-arg=SCCACHE_ENDPOINT --build-arg=SCCACHE_BUCKET --build-arg=AWS_ACCESS_KEY_ID --build-arg=AWS_SECRET_ACCESS_KEY"
-      docker build $BUILD_ARGS --cache-from "mcronce/oci-registry-builder" --target=builder -t "mcronce/oci-registry-builder" .
-      docker build $BUILD_ARGS --cache-from "mcronce/oci-registry-builder" --cache-from "mcronce/oci-registry" -t "mcronce/oci-registry:amd64" .
+      docker build $BUILD_ARGS -f Dockerfile.x86-64 --cache-from "mcronce/oci-registry-builder" --target=builder -t "mcronce/oci-registry-builder" .
+      docker build $BUILD_ARGS -f Dockerfile.x86-64 --cache-from "mcronce/oci-registry-builder" --cache-from "mcronce/oci-registry" -t "mcronce/oci-registry:amd64" .
     - mkdir -pv images
     - time docker save "mcronce/oci-registry:amd64" | gzip > images/release.amd64.tar.gz
   after_script:

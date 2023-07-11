@@ -25,7 +25,7 @@
 ## `docker`
 Mirroring `docker.io` is the default configuration.  Start `oci-registry`:
 ```bash
-oci-registry --port 8080 filesystem --root /tmp/oci-mirror
+oci-registry --listen 0.0.0.0:8080 filesystem --root /tmp/oci-mirror
 ```
 
 Configure Docker's `daemon.json` to use the registry:

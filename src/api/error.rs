@@ -2,6 +2,7 @@ use actix_web::body::BoxBody;
 use actix_web::http::StatusCode;
 use actix_web::HttpResponse;
 use actix_web::HttpResponseBuilder;
+use dkregistry::errors::Error as Upstream;
 use tracing::error;
 
 #[derive(Debug, thiserror::Error)]
@@ -9,7 +10,7 @@ pub enum Error {
 	#[error("Error with storage subsystem: {0}")]
 	Storage(#[from] crate::storage::Error),
 	#[error("Error with upstream registry: {0}")]
-	Upstream(#[from] dkregistry::errors::Error),
+	Upstream(#[from] Upstream),
 	#[error("Not found")]
 	InvalidDigest,
 	#[error("Missing Content-Length header from upstream")]
@@ -37,4 +38,8 @@ impl actix_web::ResponseError for Error {
 		error!("{}: {}", status_code.as_u16(), self);
 		HttpResponseBuilder::new(status_code).body(self.to_string())
 	}
+}
+
+pub fn should_retry_without_namespace(err: &Upstream) -> bool {
+	matches!(err, dkregistry::errors::Error::Reqwest(_) | dkregistry::errors::Error::UnexpectedHttpStatus(_) | dkregistry::errors::Error::Client { .. })
 }

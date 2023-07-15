@@ -50,18 +50,18 @@ In short, `oci-registry`'s default configuration will work for most public regis
 # namespace and host are the only two required keys
 - namespace: example.com
   host: registry.example.com
-# Connecting with TLS is the default
+  # Connecting with TLS is the default
   tls: true
-# Requiring valid TLS certs is the default
+  # Requiring valid TLS certs is the default
   accept_invalid_certs: false
-# This hypothetical registry checks the HTTP User-Agent header to make sure there's no malarkey going on, so pretend to be containerd
+  # This hypothetical registry checks the HTTP User-Agent header to make sure there's no malarkey going on, so pretend to be containerd
   user_agent: "containerd/1.6.8"
-# This hypothetical registry requires authentication, so let's give it our username and password
+  # This hypothetical registry requires authentication, so let's give it our username and password
   username: example
   password: hunter2
-# This hypothetical registry is used for active development, so let's _always_ see if we have the latest manifest for a given image
+  # This hypothetical registry is used for active development, so let's _always_ see if we have the latest manifest for a given image
   manifest_invalidation_time: 0s
-# Blobs are identified by the SHA256 hash of their contents, so they probably won't change frequently, if ever
+  # Blobs are identified by the SHA256 hash of their contents, so they probably won't change frequently, if ever
   blob_invalidation_time: 30d
 ```
 

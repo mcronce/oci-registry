@@ -25,8 +25,8 @@ use crate::storage::Repository;
 use crate::upstream::Clients;
 
 pub mod error;
-use error::Error;
 use error::should_retry_without_namespace;
+use error::Error;
 
 async fn authenticate_with_upstream(upstream: &mut Client, scope: &str) -> Result<(), dkregistry::errors::Error> {
 	upstream.authenticate(&[scope]).await?;

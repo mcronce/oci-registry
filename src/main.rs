@@ -36,6 +36,7 @@ enum Listen {
 
 impl FromStr for Listen {
 	type Err = &'static str;
+
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s.strip_prefix("unix:") {
 			Some(v) => Ok(Self::UnixSocket(v.into())),

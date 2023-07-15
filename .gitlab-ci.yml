@@ -32,7 +32,6 @@ cargo build and cargo test:
         rm -Rf /usr/local/cargo/registry
         time mv -f .cargo/registry /usr/local/cargo/
       fi
-    - rustup component add clippy
   script:
     - cargo update
     - cargo check

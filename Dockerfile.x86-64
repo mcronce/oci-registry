@@ -16,7 +16,6 @@ COPY Cargo.toml /repo/
 RUN \
 	mkdir -v /repo/src && \
 	echo 'fn main() {}' > /repo/src/main.rs && \
-	cargo update && \
 	cargo pgo build && \
 	bash -exc "if [ '${RUSTC_WRAPPER}' == '/usr/bin/sccache' ]; then /usr/bin/sccache -s; fi" && \
 	rm -Rvf /repo/src

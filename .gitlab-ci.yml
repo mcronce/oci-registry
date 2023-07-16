@@ -53,7 +53,7 @@ Build x86-64 container image:
   before_script:
     - docker version
     - apk add -U bash coreutils
-    - bash -ec 'find Cargo.toml src ui -type f | while read file; do revision="$(git rev-list -n 1 HEAD "${file}")"; timestamp="$(git show --pretty=format:%ai --abbrev-commit "${revision}" | head -n1)"; touch -d "${timestamp}" "${file}"; done'
+    - bash -ec 'find Cargo.toml src -type f | while read file; do revision="$(git rev-list -n 1 HEAD "${file}")"; timestamp="$(git show --pretty=format:%ai --abbrev-commit "${revision}" | head -n1)"; touch -d "${timestamp}" "${file}"; done'
   script:
     - |
       BUILD_ARGS="--build-arg=CARGO_INCREMENTAL --build-arg=RUSTC_WRAPPER --build-arg=SCCACHE_ENDPOINT --build-arg=SCCACHE_BUCKET --build-arg=AWS_ACCESS_KEY_ID --build-arg=AWS_SECRET_ACCESS_KEY"

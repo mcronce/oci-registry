@@ -34,10 +34,9 @@ cargo build and cargo test:
       fi
   script:
     - cargo update
-    - cargo check
     - cargo clippy --no-deps -- -D warnings
-    - cargo test
     - cargo build
+    - cargo test
   after_script:
     - if [ ! -d .cargo ]; then mkdir .cargo; fi
     - time mv -f /usr/local/cargo/registry .cargo/

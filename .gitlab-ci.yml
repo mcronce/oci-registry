@@ -33,7 +33,6 @@ cargo build and cargo test:
         time mv -f .cargo/registry /usr/local/cargo/
       fi
   script:
-    - cargo update
     - cargo clippy --no-deps -- -D warnings
     - cargo build
     - cargo test

@@ -26,7 +26,8 @@ bytes = { version = "1.2.1", features = ["serde"] }
 camino = "1.1.1"
 clap = { version = "4.0.12", features = ["derive", "env"] }
 compact_str = { version = "0.7.0", features = ["serde"] }
-dkregistry = { version = "0.5.1-alpha.0", git = "https://github.com/mcronce/dkregistry-rs.git", default-features = false, features = ["reqwest-rustls"] }
+#dkregistry = { version = "0.5.1-alpha.0", git = "https://github.com/mcronce/dkregistry-rs.git", default-features = false, features = ["reqwest-rustls"] }
+dkregistry = { version = "0.5.1-alpha.0", path = "../dkregistry-rs", default-features = false, features = ["reqwest-rustls"] }
 futures = "0.3.24"
 hex = "0.4.3"
 humantime = "2.1.0"
@@ -40,6 +41,7 @@ serde_json = "1.0.86"
 serde_with = { version = "3.0.0", features = ["hex"] }
 serde_yaml = "0.9.13"
 sha2 = "0.10.6"
+socket-address = "0.1.0"
 thiserror = "1.0.37"
 tikv-jemallocator-global = { version = "0.5.0", features = ["tikv-jemallocator"] }
 time = { version = "0.3.15", features = ["parsing"] }

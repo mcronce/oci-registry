@@ -171,8 +171,8 @@ impl UpstreamConfig {
 						conf
 					})
 					.map(|conf| Ok::<_, Error>((conf.namespace.clone(), conf.try_into()?)))
-					.collect::<Result<Vec<_>, _>>()?;
-				upstream_config.into_iter().collect()
+					.collect::<Result<Clients, _>>()?;
+				upstream_config
 			},
 			None => {
 				#[rustfmt::skip]

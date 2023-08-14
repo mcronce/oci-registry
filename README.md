@@ -65,6 +65,13 @@ In short, `oci-registry`'s default configuration will work for most public regis
   blob_invalidation_time: 30d
 ```
 
+To avoid having to store credentials in a plaintext file, they can be set by storing a JSON map in the `$UPSTREAM_CREDENTIALS` environment variable, like so:
+```
+UPSTREAM_CREDENTIALS='{"example.com": {"username": "example", "password": "hunter2"}, "docker.io": {"username": "aaa", "password": "bbb"}}'
+```
+
+Note that this is not exposed in the Helm chart, because the configuration is already itself mounted in from a secret.
+
 ### Configure `containerd`
 Recent versions of `containerd` (1.5+) use [per-host configuration files][containerd-hosts]; for older versions, config instructions can be found in the deprecated section [here][containerd-deprecated].
 

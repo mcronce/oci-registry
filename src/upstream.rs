@@ -181,7 +181,7 @@ impl UpstreamConfig {
 			Some(file) => {
 				let upstream_config = read_to_string(file).await.unwrap();
 				let upstream_config: Vec<SingleUpstreamConfig> = serde_yaml::from_str(&upstream_config).unwrap();
-				let upstream_config = upstream_config
+				upstream_config
 					.into_iter()
 					.map(|conf| {
 						info!("Parsed upstream config: {:?}", conf);
@@ -200,8 +200,7 @@ impl UpstreamConfig {
 						None => conf
 					})
 					.map(|conf| Ok::<_, Error>((conf.namespace.clone(), conf.try_into()?)))
-					.collect::<Result<Clients, _>>()?;
-				upstream_config
+					.collect::<Result<Clients, _>>()?
 			},
 			None => {
 				let (username, password) = match upstream_credentials.remove("docker.io") {

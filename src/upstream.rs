@@ -155,11 +155,26 @@ pub struct UpstreamConfig {
 	/// passes in a `ns` parameter that isn't found in the configuration, the namespace will be
 	/// treated as an upstream hostname, and we will try to connect with TLS enabled, requiring
 	/// valid certs, and with no user-agent/credentials.
-	upstream_config_file: Option<Utf8PathBuf>
+	upstream_config_file: Option<Utf8PathBuf>,
+	#[clap(env, long, default_value = "{}")]
+	/// For security reasons, upstream registry credentials can be passed this way instead of
+	/// storing them in a config file - this is expected in JSON format, as a map from namespace
+	/// to credentials.
+	///
+	/// Example: `{"docker.io": {"username": "foo", "password": "bar"}, "namespace2": {"username":
+	/// {"aaa", "pasword": "bbb"}}`
+	upstream_credentials: String
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CredentialsOverride<'a> {
+	username: &'a str,
+	password: &'a str
 }
 
 impl UpstreamConfig {
 	pub async fn clients(&self) -> Result<Clients, Error> {
+		let mut upstream_credentials: HashMap<&str, CredentialsOverride<'_>> = serde_json::from_str(self.upstream_credentials.as_ref()).unwrap();
 		let mut clients = match self.upstream_config_file.as_ref() {
 			Some(file) => {
 				let upstream_config = read_to_string(file).await.unwrap();
@@ -170,11 +185,23 @@ impl UpstreamConfig {
 						info!("Parsed upstream config: {:?}", conf);
 						conf
 					})
+					.map(|mut conf| match upstream_credentials.remove::<str>(conf.namespace.as_ref()) {
+						Some(cred) => {
+							conf.username = Some(cred.username.into());
+							conf.password = Some(cred.password.into());
+							conf
+						},
+						None => conf
+					})
 					.map(|conf| Ok::<_, Error>((conf.namespace.clone(), conf.try_into()?)))
 					.collect::<Result<Clients, _>>()?;
 				upstream_config
 			},
 			None => {
+				let (username, password) = match upstream_credentials.remove("docker.io") {
+					Some(creds) => (Some(creds.username.into()), Some(creds.password.into())),
+					None => (None, None)
+				};
 				#[rustfmt::skip]
 				let client = SingleUpstreamConfig{
 					namespace: "docker.io".into(),
@@ -182,8 +209,8 @@ impl UpstreamConfig {
 					tls: true,
 					accept_invalid_certs: false,
 					user_agent: None,
-					username: None,
-					password: None,
+					username,
+					password,
 					manifest_invalidation_time: default_manifest_invalidation_time(),
 					blob_invalidation_time: default_blob_invalidation_time()
 				}.try_into()?;
@@ -192,6 +219,11 @@ impl UpstreamConfig {
 				Clients(map)
 			}
 		};
+
+		for (namespace, _) in upstream_credentials {
+			warn!(namespace, "Namespace found in UPSTREAM_CREDENTIALS, but not in upstream config file; will be ignored.");
+		}
+
 		let default_client = clients.get(Some(&self.default_upstream_namespace))?;
 		clients.0.insert("".into(), default_client);
 		Ok(clients)

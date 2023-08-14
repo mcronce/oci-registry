@@ -187,6 +187,10 @@ impl UpstreamConfig {
 					})
 					.map(|mut conf| match upstream_credentials.remove::<str>(conf.namespace.as_ref()) {
 						Some(cred) => {
+							if (conf.username.is_some() || conf.password.is_some()) {
+								let namespace: &str = conf.namespace.as_ref();
+								warn!(namespace, "Found namespace in UPSTREAM_CREDENTIALS override, and it already has credentials set in the config file");
+							}
 							conf.username = Some(cred.username.into());
 							conf.password = Some(cred.password.into());
 							conf

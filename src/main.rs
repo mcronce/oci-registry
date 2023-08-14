@@ -1,10 +1,12 @@
 #![allow(unused_parens)]
+use core::future;
 use core::time::Duration;
 
 use actix_web::dev::Service;
 use actix_web::http::header::HeaderName;
 use actix_web::http::header::HeaderValue;
 use actix_web::web;
+use actix_web::HttpResponse;
 use clap::Parser;
 use compact_str::CompactString;
 use futures::future::join_all;
@@ -41,7 +43,13 @@ struct Config {
 }
 
 #[inline]
-async fn health() -> Result<&'static str, api::error::Error> {
+fn liveness() -> future::Ready<HttpResponse> {
+	future::ready(HttpResponse::Ok().body(""))
+}
+
+#[allow(dead_code)] // TODO:  Implement
+#[inline]
+async fn readiness() -> Result<&'static str, api::error::Error> {
 	// TODO:  Check upstream and storage
 	Ok("")
 }
@@ -123,7 +131,7 @@ async fn main() {
 						})
 					})
 			)
-			.route("/", web::get().to(health))
+			.route("/", web::get().to(liveness))
 	});
 	match config.listen {
 		socket_address::Address::Network(addr) => server.shutdown_timeout(10).bind(&addr).unwrap().run().await.unwrap(),

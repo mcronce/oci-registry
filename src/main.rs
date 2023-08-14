@@ -20,6 +20,7 @@ mod api;
 mod image;
 mod storage;
 mod upstream;
+mod util;
 
 use storage::StorageConfig;
 use upstream::InvalidationConfig;

@@ -13,6 +13,8 @@ use tokio::fs::read_to_string;
 use tracing::info;
 use tracing::warn;
 
+use crate::util::SecretString;
+
 #[derive(Clone, Debug)]
 pub struct Client {
 	pub client: InnerClient,
@@ -93,9 +95,9 @@ pub struct SingleUpstreamConfig {
 	#[serde(default)]
 	user_agent: Option<String>,
 	#[serde(default)]
-	username: Option<String>,
+	username: Option<SecretString>,
 	#[serde(default)]
-	password: Option<String>,
+	password: Option<SecretString>,
 	#[serde(default = "default_manifest_invalidation_time")]
 	#[serde_as(as = "DisplayFromStr")]
 	manifest_invalidation_time: Duration,
@@ -133,8 +135,8 @@ impl TryFrom<SingleUpstreamConfig> for Client {
 			.insecure_registry(!config.tls)
 			.accept_invalid_certs(config.accept_invalid_certs)
 			.user_agent(config.user_agent)
-			.username(config.username)
-			.password(config.password)
+			.username(config.username.map(|s| s.into_inner()))
+			.password(config.password.map(|s| s.into_inner()))
 			.build()?;
 		Ok(Self {
 			client,

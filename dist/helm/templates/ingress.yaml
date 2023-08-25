@@ -25,14 +25,13 @@ spec:
   {{- if $new }}
   ingressClassName: {{ required "If ingress.enabled is set to true, ingress.class is required" .Values.ingress.class | quote }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- if or .Values.ingress.tls (hasKey .Values.ingress.annotations "kubernetes.io/tls-acme") }}
   tls:
-    {{- range .Values.ingress.tls }}
-    - hosts:
-      {{- range .hosts }}
-        - {{ . }}
-      {{- end }}
-      secretName: {{ .secretName }}
+    {{- if hasKey .Values.ingress.annotations "kubernetes.io/tls-acme" }}
+    - hosts: {{ .Values.ingress.hosts | toYaml | nindent 8 }}
+      secretName: {{ printf "%s-tls" .Release.Name }}
+    {{- else }}
+      {{- toYaml (list .Values.ingress.tls) | nindent 4 }}
     {{- end }}
   {{- end }}
   rules:

@@ -15,15 +15,15 @@ metadata:
   labels:
     {{- include "oci-registry.labels" . | nindent 4 }}
   annotations:
-    {{- if not $new }}
-    kubernetes.io/ingress.class: {{ required "If ingress.enabled is set to true, ingress.class is required" .Values.ingress.class | quote }}
+    {{- if and (not $new) .Values.ingress.class }}
+    kubernetes.io/ingress.class: {{ .Values.ingress.class | quote }}
     {{- end }}
     {{- if .Values.ingress.annotations }}
     {{- toYaml .Values.ingress.annotations | nindent 4 }}
     {{- end }}
 spec:
-  {{- if $new }}
-  ingressClassName: {{ required "If ingress.enabled is set to true, ingress.class is required" .Values.ingress.class | quote }}
+  {{- if and $new .Values.ingress.class }}
+  ingressClassName: {{ .Values.ingress.class | quote }}
   {{- end }}
   {{- if or .Values.ingress.tls (hasKey .Values.ingress.annotations "kubernetes.io/tls-acme") }}
   tls:

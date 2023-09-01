@@ -100,14 +100,18 @@ impl Repository {
 		let mut count = 0;
 		let root = self.root.join(prefix);
 		let mut entries = WalkDir::new(root);
+		let mut first_iteration = true;
 		while let Some(entry) = entries.next().await {
 			let entry = match entry {
 				Ok(v) => v,
+				// If we get a NotFound error on the first iteration, it only means that we haven't cached anything under this prefix yet
+				Err(e) if e.kind() == std::io::ErrorKind::NotFound && first_iteration => continue,
 				Err(e) => {
 					error!("Error walking '{prefix}':  {e}");
 					continue;
 				}
 			};
+			first_iteration = false;
 			let path = entry.path();
 			let metadata = match entry.metadata().await {
 				Ok(v) => v,

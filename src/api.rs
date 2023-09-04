@@ -87,7 +87,8 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 }
 
 pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>, default_ns: web::Data<CompactString>) -> Result<HttpResponse, Error> {
-	let mut upstream = upstream.lock().await.get(qstr.ns.as_deref())?;
+	let mut upstream = upstream.lock().await;
+	let upstream = upstream.get(qstr.ns.as_deref())?;
 	let manifest = get_manifest(req.as_ref(), upstream.manifest_invalidation_time, repo.as_ref(), &mut upstream.client, qstr.ns.as_deref().unwrap_or_else(|| default_ns.as_ref())).await?;
 
 	let mut response = HttpResponse::Ok();
@@ -130,7 +131,8 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
-	let mut upstream = upstream.lock().await.get(qstr.ns.as_deref())?;
+	let mut upstream = upstream.lock().await;
+	let upstream = upstream.get(qstr.ns.as_deref())?;
 	authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
 	let response = match upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), qstr.ns.as_deref()).await {
 		Ok(v) => v,

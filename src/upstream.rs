@@ -24,16 +24,13 @@ pub struct Client {
 
 pub struct Clients(HashMap<CompactString, Client>);
 impl Clients {
-	pub fn get(&mut self, key: Option<&str>) -> Result<Client, Error> {
+	pub fn get<'a>(&'a mut self, key: Option<&str>) -> Result<&'a mut Client, Error> {
 		let key = key.unwrap_or_default();
-		match self.0.get(key) {
-			Some(v) => Ok(v.clone()),
-			None => {
-				warn!("Unknown namespace '{}' passed; configuring with default settings", key);
-				self.insert(key.into(), SingleUpstreamConfig::new(key.into()))?;
-				Ok(self.0.get(key).unwrap().clone())
-			}
+		if (!self.0.contains_key(key)) {
+			warn!("Unknown namespace '{}' passed; configuring with default settings", key);
+			self.insert(key.into(), SingleUpstreamConfig::new(key.into()))?;
 		}
+		Ok(self.0.get_mut(key).unwrap())
 	}
 
 	fn insert(&mut self, key: CompactString, config: SingleUpstreamConfig) -> Result<(), Error> {
@@ -229,7 +226,7 @@ impl UpstreamConfig {
 			warn!(namespace, "Namespace found in UPSTREAM_CREDENTIALS, but not in upstream config file; will be ignored.");
 		}
 
-		let default_client = clients.get(Some(&self.default_upstream_namespace))?;
+		let default_client = clients.get(Some(&self.default_upstream_namespace))?.clone();
 		clients.0.insert("".into(), default_client);
 		Ok(clients)
 	}

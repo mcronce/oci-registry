@@ -57,14 +57,15 @@ async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
 	let mut count = match repo.delete_old_blobs(upstream.blob).await {
 		Ok(v) => v,
 		Err(error) => {
-			error!(?error, "Error in background cleanup task");
+			error!(?error, "Error cleaning up blobs");
 			0
 		}
 	};
 	for (ns, age) in upstream.manifests.iter() {
+		let ns: &str = ns.as_ref();
 		match repo.delete_old_manifests(ns, *age).await {
 			Ok(v) => count += v,
-			Err(error) => error!(?error, "Error in background cleanup task")
+			Err(error) => error!(?error, namespace = ns, "Error cleaning up manifests")
 		};
 	}
 

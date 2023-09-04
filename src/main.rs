@@ -7,6 +7,7 @@ use actix_web::http::header::HeaderName;
 use actix_web::http::header::HeaderValue;
 use actix_web::web;
 use actix_web::HttpResponse;
+use actix_web_prometheus::PrometheusMetricsBuilder;
 use clap::Parser;
 use compact_str::CompactString;
 use futures::future::join_all;
@@ -107,10 +108,13 @@ async fn main() {
 	let default_namespace = web::Data::new(config.default_namespace);
 
 	let server = actix_web::HttpServer::new(move || {
+		let prometheus = PrometheusMetricsBuilder::new("oci_registry").endpoint("/metrics").build().unwrap();
+
 		actix_web::App::new()
 			.app_data(repo.clone())
 			.app_data(upstream.clone())
 			.app_data(default_namespace.clone())
+			.wrap(prometheus)
 			.service(
 				web::scope("/v2")
 					.wrap(actix_web::middleware::Logger::default())

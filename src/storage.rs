@@ -3,6 +3,7 @@ use core::time::Duration;
 use actix_web::body::SizedStream;
 use bytes::Bytes;
 use clap::Subcommand;
+use compact_str::format_compact;
 use dkregistry::mediatypes::MediaTypes;
 use futures::stream::BoxStream;
 use futures::stream::TryStream;
@@ -90,9 +91,11 @@ impl Repository {
 	}
 
 	pub async fn delete_old_manifests(&self, ns: &str, age: Duration) -> Result<usize, Error> {
+		let prefix = format_compact!("manifests/{ns}");
+		let prefix: &str = prefix.as_ref();
 		match self {
-			Self::S3(r) => r.delete_old_objects(age, &format!("manifests/{ns}")).await,
-			Self::Filesystem(r) => r.delete_old_files(age, format!("manifests/{ns}").as_ref()).await
+			Self::S3(r) => r.delete_old_objects(age, prefix).await,
+			Self::Filesystem(r) => r.delete_old_files(age, prefix.as_ref()).await
 		}
 	}
 }

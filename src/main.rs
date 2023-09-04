@@ -10,8 +10,6 @@ use actix_web::HttpResponse;
 use actix_web_prometheus::PrometheusMetricsBuilder;
 use clap::Parser;
 use compact_str::CompactString;
-use futures::future::join_all;
-use futures::future::BoxFuture;
 use futures::future::FutureExt;
 use tokio::sync::oneshot;
 use tokio::sync::Mutex;
@@ -56,22 +54,20 @@ async fn readiness() -> Result<&'static str, api::error::Error> {
 }
 
 async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
-	let mut tasks: Vec<BoxFuture<'_, _>> = Vec::with_capacity(upstream.manifests.len() + 1);
-	tasks.push(Box::pin(repo.delete_old_blobs(upstream.blob)));
+	let mut count = match repo.delete_old_blobs(upstream.blob).await {
+		Ok(v) => v,
+		Err(error) => {
+			error!(?error, "Error in background cleanup task");
+			0
+		}
+	};
 	for (ns, age) in upstream.manifests.iter() {
-		tasks.push(Box::pin(repo.delete_old_manifests(ns, *age)));
+		match repo.delete_old_manifests(ns, *age).await {
+			Ok(v) => count += v,
+			Err(error) => error!(?error, "Error in background cleanup task")
+		};
 	}
-	let count: usize = join_all(tasks)
-		.await
-		.into_iter()
-		.map(|r| match r {
-			Ok(v) => v,
-			Err(e) => {
-				error!("Error in background cleanup task:  {e}");
-				0
-			}
-		})
-		.sum();
+
 	if (count > 0) {
 		warn!("Aged out {count} objects");
 	} else {

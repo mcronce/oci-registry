@@ -1,7 +1,7 @@
 image:
   registry: mcronce
   name: oci-registry
-  tag: v0.3.15
+  tag: v0.3.16
   pullPolicy: IfNotPresent
   pullSecret:
 

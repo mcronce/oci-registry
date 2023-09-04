@@ -59,7 +59,7 @@ impl From<ReadStream> for SizedStream<BoxStream<'static, Result<Bytes, Box<dyn s
 }
 
 impl Repository {
-	pub async fn read(self, object: &str, invalidation: Duration) -> Result<ReadStream, Error> {
+	pub async fn read(&self, object: &str, invalidation: Duration) -> Result<ReadStream, Error> {
 		let result = match self {
 			Self::S3(r) => r.read(object, invalidation).await?,
 			Self::Filesystem(r) => r.read(object.into(), invalidation).await?

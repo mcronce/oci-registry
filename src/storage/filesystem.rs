@@ -48,7 +48,7 @@ impl Repository {
 		self.root.join(path)
 	}
 
-	pub async fn read(self, object: &Utf8Path, invalidation: Duration) -> Result<ReadStream, super::Error> {
+	pub async fn read(&self, object: &Utf8Path, invalidation: Duration) -> Result<ReadStream, super::Error> {
 		let path = self.full_path(object);
 		let (age, length) = {
 			let metadata = symlink_metadata(&path).await?;

@@ -61,7 +61,7 @@ pub struct ManifestQueryString {
 
 async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repository, upstream: &mut Client, namespace: &str) -> Result<Manifest, Error> {
 	let storage_path = req.storage_path(namespace);
-	match repo.clone().read(&storage_path, max_age).await {
+	match repo.read(&storage_path, max_age).await {
 		Ok(stream) => {
 			let body = stream.into_inner().try_collect::<web::BytesMut>().await?;
 			let manifest = serde_json::from_slice(body.as_ref())?;
@@ -125,7 +125,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let req_path = req.http_path();
 	let storage_path = req.storage_path();
 	let max_age = upstream.lock().await.get(qstr.ns.as_deref())?.blob_invalidation_time;
-	match (*repo.clone().into_inner()).clone().read(storage_path.as_ref(), max_age).await {
+	match repo.read(storage_path.as_ref(), max_age).await {
 		Ok(stream) => return Ok(HttpResponse::Ok().body(SizedStream::from(stream))),
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};

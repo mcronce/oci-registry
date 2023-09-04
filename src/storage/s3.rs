@@ -158,7 +158,7 @@ impl Repository {
 		self.inner.get_object(req).await
 	}
 
-	pub async fn read(self, object: &str, invalidation: Duration) -> Result<ReadStream, super::Error> {
+	pub async fn read(&self, object: &str, invalidation: Duration) -> Result<ReadStream, super::Error> {
 		let obj = self.get_object(object).await?;
 		let time = obj.last_modified.map(|s| OffsetDateTime::parse(&s, &Rfc2822)).transpose()?.unwrap_or(OffsetDateTime::UNIX_EPOCH);
 		let age = Duration::try_from(SystemTime::now() - time).unwrap_or_default();

@@ -93,7 +93,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, manifest.media_type.to_string()));
-	if let Some(digest) = manifest.digest.clone() {
+	if let Some(digest) = manifest.digest {
 		response.insert_header(("Docker-Content-Digest", digest));
 	}
 	Ok(response.body(manifest.manifest))

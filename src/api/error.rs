@@ -25,7 +25,13 @@ impl actix_web::ResponseError for Error {
 	fn status_code(&self) -> StatusCode {
 		match self {
 			Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
-			Self::Upstream(_) => StatusCode::INTERNAL_SERVER_ERROR,
+			Self::Upstream(e) => match e {
+				Upstream::UnexpectedHttpStatus(s) if *s == StatusCode::NOT_FOUND => *s,
+				Upstream::UnexpectedHttpStatus(_) => StatusCode::INTERNAL_SERVER_ERROR,
+				Upstream::Client { status } if *status == StatusCode::NOT_FOUND => *status,
+				Upstream::Client { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+				_ => StatusCode::INTERNAL_SERVER_ERROR
+			},
 			Self::InvalidDigest => StatusCode::NOT_FOUND,
 			Self::MissingContentLength => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,

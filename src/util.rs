@@ -2,11 +2,12 @@ use core::convert::Infallible;
 use core::fmt;
 use core::str::FromStr;
 
+use compact_str::CompactString;
 use serde::Deserialize;
 use serde::Deserializer;
 
 #[derive(Clone)]
-pub(crate) struct SecretString(String);
+pub(crate) struct SecretString(CompactString);
 impl FromStr for SecretString {
 	type Err = Infallible;
 
@@ -33,14 +34,14 @@ impl fmt::Debug for SecretString {
 impl<'de> Deserialize<'de> for SecretString {
 	#[inline]
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let s = String::deserialize(deserializer)?;
+		let s = CompactString::deserialize(deserializer)?;
 		Ok(Self(s))
 	}
 }
 
 impl SecretString {
 	#[inline]
-	pub(crate) fn into_inner(self) -> String {
+	pub(crate) fn into_inner(self) -> CompactString {
 		self.0
 	}
 }

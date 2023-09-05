@@ -1,4 +1,5 @@
 use core::time::Duration;
+use std::time::SystemTime;
 
 use actix_web::body::SizedStream;
 use bytes::Bytes;
@@ -83,19 +84,19 @@ impl Repository {
 		Ok(result)
 	}
 
-	pub async fn delete_old_blobs(&self, age: Duration) -> Result<usize, Error> {
+	pub async fn delete_old_blobs(&self, older_than: SystemTime) -> Result<usize, Error> {
 		match self {
-			Self::S3(r) => r.delete_old_objects(age, "blobs/").await,
-			Self::Filesystem(r) => r.delete_old_files(age, "blobs".as_ref()).await
+			Self::S3(r) => r.delete_old_objects(older_than, "blobs/").await,
+			Self::Filesystem(r) => r.delete_old_files(older_than, "blobs".as_ref()).await
 		}
 	}
 
-	pub async fn delete_old_manifests(&self, ns: &str, age: Duration) -> Result<usize, Error> {
+	pub async fn delete_old_manifests(&self, ns: &str, older_than: SystemTime) -> Result<usize, Error> {
 		let prefix = format_compact!("manifests/{ns}");
 		let prefix: &str = prefix.as_ref();
 		match self {
-			Self::S3(r) => r.delete_old_objects(age, prefix).await,
-			Self::Filesystem(r) => r.delete_old_files(age, prefix.as_ref()).await
+			Self::S3(r) => r.delete_old_objects(older_than, prefix).await,
+			Self::Filesystem(r) => r.delete_old_files(older_than, prefix.as_ref()).await
 		}
 	}
 }

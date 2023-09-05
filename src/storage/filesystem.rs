@@ -95,8 +95,7 @@ impl Repository {
 		Ok(())
 	}
 
-	pub async fn delete_old_files(&self, age: Duration, prefix: &Utf8Path) -> Result<usize, super::Error> {
-		let now = SystemTime::now();
+	pub async fn delete_old_files(&self, older_than: SystemTime, prefix: &Utf8Path) -> Result<usize, super::Error> {
 		let mut count = 0;
 		let root = self.root.join(prefix);
 		let mut entries = WalkDir::new(root);
@@ -130,7 +129,7 @@ impl Repository {
 					continue;
 				}
 			};
-			if (now.duration_since(modified).unwrap_or_default() > age) {
+			if (modified < older_than) {
 				match remove_file(&path).await {
 					Ok(_) => info!("Aged out '{}'", path.display()),
 					Err(e) => {

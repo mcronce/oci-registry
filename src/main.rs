@@ -1,6 +1,7 @@
 #![allow(unused_parens)]
 use core::future;
 use core::time::Duration;
+use std::time::SystemTime;
 
 use actix_web::dev::Service;
 use actix_web::http::header::HeaderName;
@@ -53,7 +54,8 @@ async fn readiness() -> Result<&'static str, api::error::Error> {
 }
 
 async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
-	let mut count = match repo.delete_old_blobs(upstream.blob).await {
+	let now = SystemTime::now();
+	let mut count = match repo.delete_old_blobs(now - upstream.blob).await {
 		Ok(v) => v,
 		Err(error) => {
 			error!(?error, "Error cleaning up blobs");
@@ -62,7 +64,7 @@ async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
 	};
 	for (ns, age) in upstream.manifests.iter() {
 		let ns: &str = ns.as_ref();
-		match repo.delete_old_manifests(ns, *age).await {
+		match repo.delete_old_manifests(ns, now - *age).await {
 			Ok(v) => count += v,
 			Err(error) => error!(?error, namespace = ns, "Error cleaning up manifests")
 		};

@@ -186,8 +186,7 @@ impl Repository {
 		Ok(())
 	}
 
-	pub async fn delete_old_objects(&self, age: Duration, prefix: &str) -> Result<usize, super::Error> {
-		let now = SystemTime::now();
+	pub async fn delete_old_objects(&self, older_than: SystemTime, prefix: &str) -> Result<usize, super::Error> {
 		let mut count = 0;
 		let mut stream = self.list_objects(prefix).await?;
 		while let Some(obj) = stream.next().await {
@@ -196,7 +195,7 @@ impl Repository {
 				continue;
 			};
 			let modified = obj.last_modified.and_then(|s| OffsetDateTime::parse(&s, &Rfc3339).ok()).unwrap_or(OffsetDateTime::UNIX_EPOCH);
-			if (now - modified > age) {
+			if (modified < older_than) {
 				let req = DeleteObjectRequest {
 					bucket: self.bucket.to_string(),
 					key: key.clone(),

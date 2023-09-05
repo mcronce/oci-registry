@@ -1582,7 +1582,7 @@ dependencies = [
 
 [[package]]
 name = "oci-registry"
-version = "0.3.17"
+version = "0.3.18"
 dependencies = [
  "actix-web",
  "actix-web-prometheus",

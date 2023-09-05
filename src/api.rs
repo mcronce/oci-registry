@@ -138,7 +138,6 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		return Err(Error::InvalidDigest);
 	}
 
-	let req_path = req.http_path();
 	let storage_path = req.storage_path();
 	let max_age = config.upstream.lock().await.get(qstr.ns.as_deref())?.blob_invalidation_time;
 	match config.repo.read(storage_path.as_ref(), max_age).await {
@@ -171,7 +170,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 					}
 				};
 				if (tx.broadcast(chunk).await.is_err()) {
-					error!("Readers for proxied blob request {} all closed", req_path);
+					error!("Readers for proxied blob request {} all closed", req.http_path());
 					break;
 				}
 			}

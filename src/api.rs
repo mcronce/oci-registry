@@ -6,7 +6,6 @@ use actix_web::rt;
 use actix_web::web;
 use actix_web::HttpResponse;
 use arcerror::ArcError;
-use arcstr::ArcStr;
 use compact_str::CompactString;
 use dkregistry::v2::Client;
 use futures::stream;
@@ -120,15 +119,15 @@ pub struct BlobRequest {
 }
 
 impl BlobRequest {
-	fn http_path(&self) -> ArcStr {
-		format!("/{}/blobs/{}", self.image, self.digest).into()
+	fn http_path(&self) -> String {
+		format!("/{}/blobs/{}", self.image, self.digest)
 	}
 
-	fn storage_path(&self) -> ArcStr {
+	fn storage_path(&self) -> String {
 		let (method, hash) = self.digest.split_once(':').unwrap_or(("_", &self.digest));
 		let hash_prefix = hash.get(..2).unwrap_or("_");
 		let rest_of_hash = hash.get(2..).unwrap_or(hash);
-		format!("blobs/{method}/{hash_prefix}/{rest_of_hash}").into()
+		format!("blobs/{method}/{hash_prefix}/{rest_of_hash}")
 	}
 }
 

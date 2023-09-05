@@ -2,6 +2,7 @@ use std::iter;
 
 use actix_web::body::SizedStream;
 use actix_web::http;
+use actix_web::http::header::HeaderName;
 use actix_web::rt;
 use actix_web::web;
 use actix_web::HttpResponse;
@@ -73,7 +74,7 @@ fn manifest_response(manifest: Manifest) -> HttpResponse {
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, manifest.media_type.to_string()));
 	if let Some(digest) = manifest.digest {
-		response.insert_header(("Docker-Content-Digest", digest));
+		response.insert_header((HeaderName::from_static("docker-content-digest"), digest));
 	}
 	response.body(manifest.manifest)
 }

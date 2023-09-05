@@ -28,13 +28,25 @@ pub mod error;
 use error::should_retry_without_namespace;
 use error::Error;
 
+pub struct RequestConfig {
+	repo: Repository,
+	upstream: Mutex<Clients>,
+	default_ns: CompactString
+}
+
+impl RequestConfig {
+	pub fn new(repo: Repository, upstream: Clients, default_ns: CompactString) -> Self {
+		Self { repo, upstream: Mutex::new(upstream), default_ns }
+	}
+}
+
 async fn authenticate_with_upstream(upstream: &mut Client, scope: &str) -> Result<(), dkregistry::errors::Error> {
 	upstream.authenticate(&[scope]).await?;
 	Ok(())
 }
 
-pub async fn root(upstream: web::Data<Mutex<Clients>>, qstr: web::Query<ManifestQueryString>) -> Result<&'static str, Error> {
-	upstream.lock().await.get(qstr.ns.as_deref())?.client.authenticate(&[]).await?;
+pub async fn root(config: web::Data<RequestConfig>, qstr: web::Query<ManifestQueryString>) -> Result<&'static str, Error> {
+	config.upstream.lock().await.get(qstr.ns.as_deref())?.client.authenticate(&[]).await?;
 	Ok("")
 }
 
@@ -86,10 +98,17 @@ async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repositor
 	Ok(manifest)
 }
 
-pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>, default_ns: web::Data<CompactString>) -> Result<HttpResponse, Error> {
-	let mut upstream = upstream.lock().await;
+pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<HttpResponse, Error> {
+	let mut upstream = config.upstream.lock().await;
 	let upstream = upstream.get(qstr.ns.as_deref())?;
-	let manifest = get_manifest(req.as_ref(), upstream.manifest_invalidation_time, repo.as_ref(), &mut upstream.client, qstr.ns.as_deref().unwrap_or_else(|| default_ns.as_ref())).await?;
+	let manifest = get_manifest(
+		req.as_ref(),
+		upstream.manifest_invalidation_time,
+		&config.repo,
+		&mut upstream.client,
+		qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref())
+	)
+	.await?;
 
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, manifest.media_type.to_string()));
@@ -118,20 +137,20 @@ impl BlobRequest {
 	}
 }
 
-pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryString>, repo: web::Data<Repository>, upstream: web::Data<Mutex<Clients>>) -> Result<HttpResponse, Error> {
+pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<HttpResponse, Error> {
 	if (!req.digest.starts_with("sha256:")) {
 		return Err(Error::InvalidDigest);
 	}
 
 	let req_path = req.http_path();
 	let storage_path = req.storage_path();
-	let max_age = upstream.lock().await.get(qstr.ns.as_deref())?.blob_invalidation_time;
-	match repo.read(storage_path.as_ref(), max_age).await {
+	let max_age = config.upstream.lock().await.get(qstr.ns.as_deref())?.blob_invalidation_time;
+	match config.repo.read(storage_path.as_ref(), max_age).await {
 		Ok(stream) => return Ok(HttpResponse::Ok().body(SizedStream::from(stream))),
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
-	let mut upstream = upstream.lock().await;
+	let mut upstream = config.upstream.lock().await;
 	let upstream = upstream.get(qstr.ns.as_deref())?;
 	authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
 	let response = match upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), qstr.ns.as_deref()).await {
@@ -161,12 +180,15 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		});
 	}
 
-	let rx2 = rx.clone();
-	rt::spawn(async move {
-		if let Err(e) = repo.write(storage_path.as_ref(), rx2, len.try_into().unwrap_or(i64::MAX)).await {
-			error!("{}", e);
-		}
-	});
+	{
+		let rx2 = rx.clone();
+		let config = config.clone();
+		rt::spawn(async move {
+			if let Err(e) = config.repo.write(storage_path.as_ref(), rx2, len.try_into().unwrap_or(i64::MAX)).await {
+				error!("{}", e);
+			}
+		});
+	}
 
 	Ok(HttpResponse::Ok().body(SizedStream::new(len, rx.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))))
 }

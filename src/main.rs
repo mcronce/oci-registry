@@ -12,7 +12,6 @@ use clap::Parser;
 use compact_str::CompactString;
 use futures::future::FutureExt;
 use tokio::sync::oneshot;
-use tokio::sync::Mutex;
 use tracing::error;
 use tracing::info;
 use tracing::warn;
@@ -100,17 +99,13 @@ async fn main() {
 		})
 	};
 
-	let repo = web::Data::new(repo);
-	let upstream = web::Data::new(Mutex::new(upstream));
-	let default_namespace = web::Data::new(config.default_namespace);
+	let per_request_config = web::Data::new(api::RequestConfig::new(repo, upstream, config.default_namespace));
 
 	let server = actix_web::HttpServer::new(move || {
 		let prometheus = PrometheusMetricsBuilder::new("oci_registry").endpoint("/metrics").build().unwrap();
 
 		actix_web::App::new()
-			.app_data(repo.clone())
-			.app_data(upstream.clone())
-			.app_data(default_namespace.clone())
+			.app_data(per_request_config.clone())
 			.wrap(prometheus)
 			.service(
 				web::scope("/v2")

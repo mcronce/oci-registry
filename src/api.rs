@@ -1,4 +1,3 @@
-use core::time::Duration;
 use std::iter;
 
 use actix_web::body::SizedStream;
@@ -71,51 +70,47 @@ pub struct ManifestQueryString {
 	ns: Option<CompactString>
 }
 
-async fn get_manifest(req: &ManifestRequest, max_age: Duration, repo: &Repository, upstream: &mut Client, namespace: &str) -> Result<Manifest, Error> {
-	let storage_path = req.storage_path(namespace);
-	match repo.read(&storage_path, max_age).await {
-		Ok(stream) => {
-			let body = stream.into_inner().try_collect::<web::BytesMut>().await?;
-			let manifest = serde_json::from_slice(body.as_ref())?;
-			return Ok(manifest);
-		},
-		Err(e) => warn!("{} not found at {} in repository ({}); pulling from upstream", req.http_path(), storage_path, e)
-	}
-
-	authenticate_with_upstream(upstream, &format!("repository:{}:pull", req.image.as_ref())).await?;
-	let (manifest, media_type, digest) = match upstream.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string(), Some(namespace)).await {
-		Ok(v) => v,
-		Err(e) if should_retry_without_namespace(&e) => upstream.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string(), None).await?,
-		Err(e) => return Err(e.into())
-	};
-	let manifest = Manifest::new(manifest, media_type, digest);
-
-	let body = serde_json::to_vec(&manifest).unwrap();
-	let len = body.len().try_into().unwrap_or(i64::MAX);
-	if let Err(e) = repo.write(&storage_path, stream::iter(iter::once(Result::<_, std::io::Error>::Ok(body.into()))), len).await {
-		error!("{}", e);
-	}
-	Ok(manifest)
-}
-
-pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<HttpResponse, Error> {
-	let mut upstream = config.upstream.lock().await;
-	let upstream = upstream.get(qstr.ns.as_deref())?;
-	let manifest = get_manifest(
-		req.as_ref(),
-		upstream.manifest_invalidation_time,
-		&config.repo,
-		&mut upstream.client,
-		qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref())
-	)
-	.await?;
-
+fn manifest_response(manifest: Manifest) -> HttpResponse {
 	let mut response = HttpResponse::Ok();
 	response.insert_header((http::header::CONTENT_TYPE, manifest.media_type.to_string()));
 	if let Some(digest) = manifest.digest {
 		response.insert_header(("Docker-Content-Digest", digest));
 	}
-	Ok(response.body(manifest.manifest))
+	response.body(manifest.manifest)
+}
+
+pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<HttpResponse, Error> {
+	let max_age = config.upstream.lock().await.get(qstr.ns.as_deref())?.manifest_invalidation_time;
+	let namespace = qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref());
+	let storage_path = req.storage_path(namespace);
+	match config.repo.read(&storage_path, max_age).await {
+		Ok(stream) => {
+			let body = stream.into_inner().try_collect::<web::BytesMut>().await?;
+			let manifest = serde_json::from_slice(body.as_ref())?;
+			return Ok(manifest_response(manifest));
+		},
+		Err(e) => warn!("{} not found at {} in repository ({}); pulling from upstream", req.http_path(), storage_path, e)
+	}
+
+	let manifest = {
+		let mut upstream = config.upstream.lock().await;
+		let upstream = upstream.get(qstr.ns.as_deref())?;
+		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
+		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string(), Some(namespace)).await {
+			Ok(v) => v,
+			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string(), None).await?,
+			Err(e) => return Err(e.into())
+		};
+		Manifest::new(manifest, media_type, digest)
+	};
+
+	let body = serde_json::to_vec(&manifest).unwrap();
+	let len = body.len().try_into().unwrap_or(i64::MAX);
+	if let Err(e) = config.repo.write(&storage_path, stream::iter(iter::once(Result::<_, std::io::Error>::Ok(body.into()))), len).await {
+		error!("{}", e);
+	}
+
+	Ok(manifest_response(manifest))
 }
 
 #[derive(Debug, Deserialize)]
@@ -150,13 +145,15 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
-	let mut upstream = config.upstream.lock().await;
-	let upstream = upstream.get(qstr.ns.as_deref())?;
-	authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
-	let response = match upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), qstr.ns.as_deref()).await {
-		Ok(v) => v,
-		Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), None).await?,
-		Err(e) => return Err(e.into())
+	let response = {
+		let mut upstream = config.upstream.lock().await;
+		let upstream = upstream.get(qstr.ns.as_deref())?;
+		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
+		match upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), qstr.ns.as_deref()).await {
+			Ok(v) => v,
+			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), None).await?,
+			Err(e) => return Err(e.into())
+		}
 	};
 
 	let len = response.size().ok_or(Error::MissingContentLength)?;

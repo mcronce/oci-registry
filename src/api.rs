@@ -12,6 +12,9 @@ use dkregistry::v2::Client;
 use futures::stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
+use once_cell::sync::Lazy;
+use prometheus::IntCounterVec;
+use prometheus::register_int_counter_vec;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 use tracing::error;
@@ -80,6 +83,9 @@ fn manifest_response(manifest: Manifest) -> HttpResponse {
 }
 
 pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<HttpResponse, Error> {
+	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_hits", "Number of manifests read from cache", &["namespace"]).unwrap());
+	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_misses", "Number of manifest requests that went to upstream", &["namespace"]).unwrap());
+
 	let max_age = config.upstream.lock().await.get(qstr.ns.as_deref())?.manifest_invalidation_time;
 	let namespace = qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref());
 	let storage_path = req.storage_path(namespace);
@@ -87,11 +93,13 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 		Ok(stream) => {
 			let body = stream.into_inner().try_collect::<web::BytesMut>().await?;
 			let manifest = serde_json::from_slice(body.as_ref())?;
+			HIT_COUNTER.with_label_values(&[namespace]).inc();
 			return Ok(manifest_response(manifest));
 		},
 		Err(e) => warn!("{} not found at {} in repository ({}); pulling from upstream", req.http_path(), storage_path, e)
 	}
 
+	MISS_COUNTER.with_label_values(&[namespace]).inc();
 	let manifest = {
 		let mut upstream = config.upstream.lock().await;
 		let upstream = upstream.get(qstr.ns.as_deref())?;
@@ -134,17 +142,25 @@ impl BlobRequest {
 }
 
 pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<HttpResponse, Error> {
+	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_cache_hits", "Number of blobs read from cache", &["namespace"]).unwrap());
+	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_cache_misses", "Number of blob requests that went to upstream", &["namespace"]).unwrap());
+
 	if (!req.digest.starts_with("sha256:")) {
 		return Err(Error::InvalidDigest);
 	}
 
 	let storage_path = req.storage_path();
 	let max_age = config.upstream.lock().await.get(qstr.ns.as_deref())?.blob_invalidation_time;
+	let namespace = qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref());
 	match config.repo.read(storage_path.as_ref(), max_age).await {
-		Ok(stream) => return Ok(HttpResponse::Ok().body(SizedStream::from(stream))),
+		Ok(stream) => {
+			HIT_COUNTER.with_label_values(&[namespace]).inc();
+			return Ok(HttpResponse::Ok().body(SizedStream::from(stream)));
+		},
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
+	MISS_COUNTER.with_label_values(&[namespace]).inc();
 	let response = {
 		let mut upstream = config.upstream.lock().await;
 		let upstream = upstream.get(qstr.ns.as_deref())?;

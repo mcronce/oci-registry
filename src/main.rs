@@ -101,14 +101,16 @@ async fn main() {
 		})
 	};
 
+	let prometheus = PrometheusMetricsBuilder::new("http")
+		.endpoint("/metrics")
+		.build()
+		.unwrap();
 	let per_request_config = web::Data::new(api::RequestConfig::new(repo, upstream, config.default_namespace));
 
 	let server = actix_web::HttpServer::new(move || {
-		let prometheus = PrometheusMetricsBuilder::new("oci_registry").endpoint("/metrics").build().unwrap();
-
 		actix_web::App::new()
 			.app_data(per_request_config.clone())
-			.wrap(prometheus)
+			.wrap(prometheus.clone())
 			.service(
 				web::scope("/v2")
 					.wrap(actix_web::middleware::Logger::default())

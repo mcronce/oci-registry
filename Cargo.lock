@@ -859,7 +859,7 @@ dependencies = [
 [[package]]
 name = "dkregistry"
 version = "0.5.1-alpha.0"
-source = "git+https://github.com/mcronce/dkregistry-rs.git#23f806c0d0408fee5a6efac754ce0e40c241d9f2"
+source = "git+https://github.com/mcronce/dkregistry-rs.git#b48a9c515927504cf9db1eba63c62276d6e1fba0"
 dependencies = [
  "async-stream",
  "base64 0.21.3",
@@ -2339,9 +2339,9 @@ dependencies = [
 
 [[package]]
 name = "shlex"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
+checksum = "a7cee0529a6d40f580e7a5e6c495c8fbfe21b7b52795ed4bb5e62cdf92bc6380"
 
 [[package]]
 name = "signal-hook-registry"

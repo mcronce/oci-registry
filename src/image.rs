@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt;
 use std::str::FromStr;
 
@@ -72,6 +73,15 @@ impl fmt::Display for ImageReference {
 		match self {
 			Self::Tag(s) => s.fmt(f),
 			Self::Sha256(s) => write!(f, "sha256:{s}")
+		}
+	}
+}
+
+impl ImageReference {
+	pub fn to_str(&self) -> Cow<'_, str> {
+		match self {
+			Self::Tag(s) => Cow::Borrowed(s.as_ref()),
+			Self::Sha256(s) => Cow::Owned(format!("sha256:{s}"))
 		}
 	}
 }

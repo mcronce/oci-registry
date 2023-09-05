@@ -96,9 +96,10 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 		let mut upstream = config.upstream.lock().await;
 		let upstream = upstream.get(qstr.ns.as_deref())?;
 		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
-		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string(), Some(namespace)).await {
+		let reference = req.reference.to_str();
+		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(req.image.as_ref(), reference.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
-			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(req.image.as_ref(), &req.reference.to_string(), None).await?,
+			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(req.image.as_ref(), reference.as_ref(), None).await?,
 			Err(e) => return Err(e.into())
 		};
 		Manifest::new(manifest, media_type, digest)

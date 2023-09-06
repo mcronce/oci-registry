@@ -96,6 +96,7 @@ Push container image:
   image: docker:20-git
   before_script:
     - docker version
+    - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
     - zcat images/release.amd64.tar.gz | docker load
     - zcat images/release.arm64v8.tar.gz | docker load
   script:

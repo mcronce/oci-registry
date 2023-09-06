@@ -42,11 +42,9 @@ cargo build and cargo test:
 Build x86-64 container image:
   stage: build
   image: docker:20-git
-  cache:
-    - key: docker-amd64
-      policy: push
-      paths:
-        - images
+  artifacts:
+    paths:
+      - images/release.amd64.tar.gz
   before_script:
     - docker version
     - apk add -U bash coreutils
@@ -67,11 +65,9 @@ Build x86-64 container image:
 Build aarch64 container image:
   stage: build
   image: docker:20-git
-  cache:
-    - key: docker-arm64v8
-      policy: push
-      paths:
-        - images
+  artifacts:
+    paths:
+      - images/release.arm64v8.tar.gz
   before_script:
     - docker version
     - apk add -U bash coreutils
@@ -98,15 +94,6 @@ Lint chart:
 Push container image:
   stage: deploy
   image: docker:20-git
-  cache:
-    - key: docker-amd64
-      policy: pull
-      paths:
-        - images/release.amd64.tar.gz
-    - key: docker-arm64v8
-      policy: pull
-      paths:
-        - images/release.arm64v8.tar.gz
   before_script:
     - docker version
     - echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin

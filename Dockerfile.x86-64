@@ -47,7 +47,7 @@ RUN \
 
 RUN strip /repo/target/x86_64-unknown-linux-gnu/release/oci-registry-bolt-optimized
 
-FROM gcr.io/distroless/cc-debian11
+FROM gcr.io/distroless/cc-debian12
 COPY --from=builder /repo/target/x86_64-unknown-linux-gnu/release/oci-registry-bolt-optimized /usr/local/bin/oci-registry
 EXPOSE 80
 ENV \

@@ -853,7 +853,7 @@ dependencies = [
 [[package]]
 name = "dkregistry"
 version = "0.5.1-alpha.0"
-source = "git+https://github.com/mcronce/dkregistry-rs.git#177e223b15366bb3f9ff34a859a60e7317e5ad94"
+source = "git+https://github.com/mcronce/dkregistry-rs.git#f2e1a511b82d664eab08d84f3d58f63ced49f1b2"
 dependencies = [
  "async-stream",
  "base64 0.21.3",

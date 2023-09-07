@@ -1,4 +1,4 @@
-FROM mcronce/rust-pgo:1.71 AS builder
+FROM mcronce/rust-pgo:1.72 AS builder
 
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 ARG \
@@ -29,7 +29,7 @@ RUN \
 
 RUN aarch64-linux-gnu-strip /repo/target/aarch64-unknown-linux-gnu/release/oci-registry
 
-FROM --platform=linux/arm64 arm64v8/debian:11
+FROM --platform=linux/arm64 arm64v8/debian:12
 COPY --from=builder /repo/target/aarch64-unknown-linux-gnu/release/oci-registry /usr/local/bin/oci-registry
 EXPOSE 80
 ENV \

@@ -133,7 +133,7 @@ The Github repo is a mirror.  Project management is done in the [main repo][gitl
 [oci-test-suite]: https://github.com/opencontainers/distribution-spec/tree/main/conformance
 [containerd-hosts]: https://github.com/containerd/containerd/blob/main/docs/cri/config.md#registry-configuration
 [containerd-deprecated]: https://github.com/containerd/containerd/blob/main/docs/cri/registry.md#configure-registry-endpoint
-[registries-conf]: https://github.com/containers/image/blob/main/docs/containers-registries.conf.5.md
+[registries-conf]: https://github.com/containers/image/blob/main/docs/containers-registries.conf.5.md#remapping-and-mirroring-registries
 [gitlab]: https://gitlab.cronce.io/foss/oci-registry
 [matrix]: https://matrix.to/#/%23oci-registry%3Acronce.io
 

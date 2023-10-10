@@ -68,9 +68,6 @@ impl ManifestRequest {
 	}
 
 	fn storage_path(&self, ns: &str) -> String {
-		if self.namespace.is_some() {
-			return format!("manifests/{:?}/{}/{}", self.namespace, self.image, self.reference)
-		}
 		format!("manifests/{}/{}/{}", ns, self.image, self.reference)
 	}
 }

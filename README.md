@@ -42,6 +42,9 @@ Restart Docker and it will start pulling images from `docker.io` through `oci-re
 ## `containerd`
 `containerd` provides a mechanism for mirroring any registry you want, and sends the upstream registry as a querystring parameter in all its requests.  This means that we can mirror any number of registries to `containerd` with a single instance of `oci-registry`.
 
+## `cri-o`
+`cri-o` requires defining each registry you want to mirror, but you can use a separate path for each registry to inform `oci-registry` of which registry the request is for.
+
 ### Configure `oci-registry`
 `oci-registry`'s default configuration is to mirror any registry for which it receives requests, connecting to upstream with HTTPS, rejecting invalid certs, and using the namespace as the upstream registry host - e.g. requests for `gcr.io` images will be made to https://gcr.io/ - with the exception of `docker.io`, which will be pointed to https://registry-1.docker.io
 
@@ -102,6 +105,26 @@ EOF
 
 The above example will configure `containerd` to attempt to pull `docker.io` and `gcr.io` manifests and blobs from `oci-registry` listening on `localhost:8080`, while sticking with the original hosts for pushing, and using the original hosts if something goes wrong with `oci-registry`.
 
+### Configure `cri-o`
+`cri-o` uses the common [`registries.conf`][registries-conf] configuration file to specify which registries to mirror.
+
+Assuming default paths, simply add the following to `/etc/containers/registries.conf`:
+```
+[[registry]]
+location = "docker.io"
+[[registry.mirror]]
+location = "localhost:8080/docker.io"
+insecure = true
+
+[[registry]]
+location = "gcr.io"
+[[registry.mirror]]
+location = "localhost:8080/gcr.io"
+insecure = true
+```
+
+The above example will configure `cri-o` to attempt to pull `docker.io` and `gcr.io` manifests and blobs from `oci-registry` listening on `localhost:8080`, while sticking with the original hosts for pushing, and using the original hosts if something goes wrong with `oci-registry`.
+
 # Community
 The Github repo is a mirror.  Project management is done in the [main repo][gitlab].  In addition, there is a [Matrix room][matrix].
 
@@ -110,6 +133,7 @@ The Github repo is a mirror.  Project management is done in the [main repo][gitl
 [oci-test-suite]: https://github.com/opencontainers/distribution-spec/tree/main/conformance
 [containerd-hosts]: https://github.com/containerd/containerd/blob/main/docs/cri/config.md#registry-configuration
 [containerd-deprecated]: https://github.com/containerd/containerd/blob/main/docs/cri/registry.md#configure-registry-endpoint
+[registries-conf]: https://github.com/containers/image/blob/main/docs/containers-registries.conf.5.md
 [gitlab]: https://gitlab.cronce.io/foss/oci-registry
 [matrix]: https://matrix.to/#/%23oci-registry%3Acronce.io
 

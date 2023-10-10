@@ -48,7 +48,7 @@ async fn authenticate_with_upstream(upstream: &mut Client, scope: &str) -> Resul
 }
 
 pub async fn root(config: web::Data<RequestConfig>, qstr: web::Query<ManifestQueryString>) -> Result<&'static str, Error> {
-	config.upstream.lock().await.get(qstr.ns.as_deref())?.client.authenticate(&[]).await?;
+	config.upstream.lock().await.get(qstr.ns.as_deref().unwrap_or_default())?.client.authenticate(&[]).await?;
 	Ok("")
 }
 
@@ -62,7 +62,7 @@ pub struct ManifestRequest {
 impl ManifestRequest {
 	fn http_path(&self) -> String {
 		if self.namespace.is_some() {
-			return format!("/{:?}/{}/manifests/{}", self.namespace, self.image, self.reference)
+			return format!("/{}/{}/manifests/{}", self.namespace.as_deref().unwrap(), self.image, self.reference)
 		}
 		format!("/{}/manifests/{}", self.image, self.reference)
 	}
@@ -90,8 +90,9 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_hits", "Number of manifests read from cache", &["namespace"]).unwrap());
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_misses", "Number of manifest requests that went to upstream", &["namespace"]).unwrap());
 
-	let max_age = config.upstream.lock().await.get(qstr.ns.as_deref())?.manifest_invalidation_time;
 	let namespace = qstr.ns.as_deref().unwrap_or_else(|| req.namespace.as_deref().unwrap_or_else(|| config.default_ns.as_ref()));
+
+	let max_age = config.upstream.lock().await.get(namespace)?.manifest_invalidation_time;
 	let storage_path = req.storage_path(namespace);
 	match config.repo.read(&storage_path, max_age).await {
 		Ok(stream) => {
@@ -106,7 +107,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
 	let manifest = {
 		let mut upstream = config.upstream.lock().await;
-		let upstream = upstream.get(qstr.ns.as_deref())?;
+		let upstream = upstream.get(namespace)?;
 		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
 		let reference = req.reference.to_str();
 		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(req.image.as_ref(), reference.as_ref(), Some(namespace)).await {
@@ -136,7 +137,7 @@ pub struct BlobRequest {
 impl BlobRequest {
 	fn http_path(&self) -> String {
 		if self.namespace.is_some() {
-			return format!("/{:?}/{}/blobs/{}", self.namespace, self.image, self.digest)
+			return format!("/{}/{}/blobs/{}", self.namespace.as_deref().unwrap(), self.image, self.digest)
 		}
 		format!("/{}/blobs/{}", self.image, self.digest)
 	}
@@ -157,9 +158,10 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		return Err(Error::InvalidDigest);
 	}
 
-	let storage_path = req.storage_path();
-	let max_age = config.upstream.lock().await.get(qstr.ns.as_deref())?.blob_invalidation_time;
 	let namespace = qstr.ns.as_deref().unwrap_or_else(|| req.namespace.as_deref().unwrap_or_else(|| config.default_ns.as_ref()));
+
+	let storage_path = req.storage_path();
+	let max_age = config.upstream.lock().await.get(namespace)?.blob_invalidation_time;
 	match config.repo.read(storage_path.as_ref(), max_age).await {
 		Ok(stream) => {
 			HIT_COUNTER.with_label_values(&[namespace]).inc();
@@ -171,9 +173,9 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
 	let response = {
 		let mut upstream = config.upstream.lock().await;
-		let upstream = upstream.get(qstr.ns.as_deref())?;
+		let upstream = upstream.get(namespace)?;
 		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
-		match upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), qstr.ns.as_deref()).await {
+		match upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
 			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), None).await?,
 			Err(e) => return Err(e.into())

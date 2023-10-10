@@ -115,18 +115,18 @@ async fn main() {
 				web::scope("/v2")
 					.wrap(actix_web::middleware::Logger::default())
 					.route("/", web::get().to(api::root))
-					// /v2/library/telegraf/manifests/1.24-alpine
-					// /v2/library/redis/manifests/sha256:226cbafc637cd58cf008bf87ec9d1548ad1b672ef4279433495bdff100cdb883
-					.route("/{image:[^{}]+}/manifests/{reference}", web::head().to(api::manifest))
-					.route("/{image:[^{}]+}/manifests/{reference}", web::get().to(api::manifest))
 					// /v2/docker.io/library/telegraf/manifests/1.24-alpine
 					// /v2/docker.io/library/redis/manifests/sha256:226cbafc637cd58cf008bf87ec9d1548ad1b672ef4279433495bdff100cdb883
 					.route("/{namespace}/{image:[^{}]+}/manifests/{reference}", web::head().to(api::manifest))
 					.route("/{namespace}/{image:[^{}]+}/manifests/{reference}", web::get().to(api::manifest))
-					// /v2/grafana/grafana/blobs/sha256:6864e61916f58174557076c34e7122753331cf28077edb0f23e1fb5419dd6acd
-					.route("/{image:[^{}]+}/blobs/{digest}", web::get().to(api::blob))
+					// /v2/library/telegraf/manifests/1.24-alpine
+					// /v2/library/redis/manifests/sha256:226cbafc637cd58cf008bf87ec9d1548ad1b672ef4279433495bdff100cdb883
+					.route("/{image:[^{}]+}/manifests/{reference}", web::head().to(api::manifest))
+					.route("/{image:[^{}]+}/manifests/{reference}", web::get().to(api::manifest))
 					// /v2/docker.io/grafana/grafana/blobs/sha256:6864e61916f58174557076c34e7122753331cf28077edb0f23e1fb5419dd6acd
 					.route("/{namespace}/{image:[^{}]+}/blobs/{digest}", web::get().to(api::blob))
+					// /v2/grafana/grafana/blobs/sha256:6864e61916f58174557076c34e7122753331cf28077edb0f23e1fb5419dd6acd
+					.route("/{image:[^{}]+}/blobs/{digest}", web::get().to(api::blob))
 					.wrap_fn(|req, srv| {
 						srv.call(req).map(|response| {
 							response.map(|mut ok| {

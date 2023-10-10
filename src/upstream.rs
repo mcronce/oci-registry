@@ -24,8 +24,7 @@ pub struct Client {
 
 pub struct Clients(HashMap<CompactString, Client>);
 impl Clients {
-	pub fn get<'a>(&'a mut self, key: Option<&str>) -> Result<&'a mut Client, Error> {
-		let key = key.unwrap_or_default();
+	pub fn get<'a>(&'a mut self, key: &str) -> Result<&'a mut Client, Error> {
 		if (!self.0.contains_key(key)) {
 			warn!("Unknown namespace '{}' passed; configuring with default settings", key);
 			self.insert(key.into(), SingleUpstreamConfig::new(key.into()))?;
@@ -226,7 +225,7 @@ impl UpstreamConfig {
 			warn!(namespace, "Namespace found in UPSTREAM_CREDENTIALS, but not in upstream config file; will be ignored.");
 		}
 
-		let default_client = clients.get(Some(&self.default_upstream_namespace))?.clone();
+		let default_client = clients.get(&self.default_upstream_namespace)?.clone();
 		clients.0.insert("".into(), default_client);
 		Ok(clients)
 	}

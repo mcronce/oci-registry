@@ -8,6 +8,8 @@ set -eu
 test() {
   echo "--- Testing $1/$2"
 
+  rm -rf /tmp/oci-mirror
+
   # containerd
   url="localhost:8080/v2/$2?ns=$1"
   curl -s -o /dev/null -w "  %{http_code}: $url\n" "$url"

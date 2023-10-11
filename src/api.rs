@@ -90,7 +90,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_misses", "Number of manifest requests that went to upstream", &["namespace"]).unwrap());
 
 	let mut namespace = qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref());
-	let mut image: &str = req.image.as_ref().trim_start_matches("docker.io/");
+	let mut image: &str = req.image.as_ref();
 	if req.image.as_ref().split("/").count() > 2 {
 		namespace = req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref());
 		image = req.image.as_ref().trim_start_matches(req.image.as_ref().split("/").next().unwrap_or_default()).trim_start_matches("/");
@@ -159,7 +159,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	}
 
 	let mut namespace = qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref());
-	let mut image: &str = req.image.as_ref().trim_start_matches("docker.io/");
+	let mut image: &str = req.image.as_ref();
 	if req.image.as_ref().split("/").count() > 2 {
 		namespace = req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref());
 		image = req.image.as_ref().trim_start_matches(req.image.as_ref().split("/").next().unwrap_or_default()).trim_start_matches("/");

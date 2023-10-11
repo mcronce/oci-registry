@@ -38,7 +38,7 @@ struct Config {
 	#[clap(flatten)]
 	upstream: UpstreamConfig,
 	#[clap(subcommand)]
-	storage: StorageConfig
+	storage: StorageConfig,
 }
 
 #[inline]
@@ -60,13 +60,13 @@ async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
 		Err(error) => {
 			error!(?error, "Error cleaning up blobs");
 			0
-		}
+		},
 	};
 	for (ns, age) in upstream.manifests.iter() {
 		let ns: &str = ns.as_ref();
 		match repo.delete_old_manifests(ns, now - *age).await {
 			Ok(v) => count += v,
-			Err(error) => error!(?error, namespace = ns, "Error cleaning up manifests")
+			Err(error) => error!(?error, namespace = ns, "Error cleaning up manifests"),
 		};
 	}
 
@@ -101,10 +101,7 @@ async fn main() {
 		})
 	};
 
-	let prometheus = PrometheusMetricsBuilder::new("http")
-		.endpoint("/metrics")
-		.build()
-		.unwrap();
+	let prometheus = PrometheusMetricsBuilder::new("http").endpoint("/metrics").build().unwrap();
 	let per_request_config = web::Data::new(api::RequestConfig::new(repo, upstream, config.default_namespace));
 
 	let server = actix_web::HttpServer::new(move || {
@@ -132,13 +129,13 @@ async fn main() {
 								ok
 							})
 						})
-					})
+					}),
 			)
 			.route("/", web::get().to(liveness))
 	});
 	match config.listen {
 		socket_address::Address::Network(addr) => server.shutdown_timeout(10).bind(&addr).unwrap().run().await.unwrap(),
-		socket_address::Address::UnixSocket(path) => server.shutdown_timeout(10).bind_uds(&path).unwrap().run().await.unwrap()
+		socket_address::Address::UnixSocket(path) => server.shutdown_timeout(10).bind_uds(&path).unwrap().run().await.unwrap(),
 	};
 	shutdown_tx.send(()).unwrap();
 	background.await.unwrap();

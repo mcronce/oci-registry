@@ -13,8 +13,8 @@ use futures::stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
 use once_cell::sync::Lazy;
-use prometheus::IntCounterVec;
 use prometheus::register_int_counter_vec;
+use prometheus::IntCounterVec;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 use tracing::error;
@@ -33,7 +33,7 @@ use error::Error;
 pub struct RequestConfig {
 	repo: Repository,
 	upstream: Mutex<Clients>,
-	default_ns: CompactString
+	default_ns: CompactString,
 }
 
 impl RequestConfig {
@@ -48,14 +48,21 @@ async fn authenticate_with_upstream(upstream: &mut Client, scope: &str) -> Resul
 }
 
 pub async fn root(config: web::Data<RequestConfig>, qstr: web::Query<ManifestQueryString>) -> Result<&'static str, Error> {
-	config.upstream.lock().await.get(qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref()))?.client.authenticate(&[]).await?;
+	config
+		.upstream
+		.lock()
+		.await
+		.get(qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref()))?
+		.client
+		.authenticate(&[])
+		.await?;
 	Ok("")
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ManifestRequest {
 	image: ImageName,
-	reference: ImageReference
+	reference: ImageReference,
 }
 
 impl ManifestRequest {
@@ -64,16 +71,16 @@ impl ManifestRequest {
 	}
 
 	fn storage_path(&self, ns: &str) -> String {
-		if ns == self.image.as_ref().split("/").next().unwrap_or_default() {
-			return format!("manifests/{}/{}", self.image, self.reference);
+		match self.image.as_ref().splitn(2, '/').next() {
+			Some(part) if part == ns => format!("manifests/{}/{}", self.image, self.reference),
+			_ => format!("manifests/{}/{}/{}", ns, self.image, self.reference),
 		}
-		format!("manifests/{}/{}/{}", ns, self.image, self.reference)
 	}
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ManifestQueryString {
-	ns: Option<CompactString>
+	ns: Option<CompactString>,
 }
 
 fn manifest_response(manifest: Manifest) -> HttpResponse {
@@ -89,12 +96,19 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_hits", "Number of manifests read from cache", &["namespace"]).unwrap());
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_misses", "Number of manifest requests that went to upstream", &["namespace"]).unwrap());
 
-	let mut namespace = qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref());
-	let mut image: &str = req.image.as_ref();
-	if req.image.as_ref().split("/").count() > 2 {
-		namespace = req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref());
-		image = req.image.as_ref().trim_start_matches(req.image.as_ref().split("/").next().unwrap_or_default()).trim_start_matches("/");
-	}
+	let (namespace, image) = match qstr.ns.as_deref() {
+		Some(ns) => (ns, req.image.as_ref().trim_start_matches(&format!("{}/", ns))),
+		None => {
+			let mut parts = req.image.as_ref().splitn(2, '/');
+			match (parts.next(), parts.next()) {
+				(Some(ns), Some(image)) if image.contains('/') => (ns, image),
+				(Some(_), Some(_)) => (config.default_ns.as_ref(), req.image.as_ref()),
+				(Some(image), None) => (config.default_ns.as_ref(), image),
+				(None, Some(_)) => unreachable!(),
+				(None, None) => unreachable!(),
+			}
+		},
+	};
 
 	let max_age = config.upstream.lock().await.get(namespace)?.manifest_invalidation_time;
 	let storage_path = req.storage_path(namespace);
@@ -105,7 +119,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 			HIT_COUNTER.with_label_values(&[namespace]).inc();
 			return Ok(manifest_response(manifest));
 		},
-		Err(e) => warn!("{} not found at {} in repository ({}); pulling from upstream", req.http_path(), storage_path, e)
+		Err(e) => warn!("{} not found at {} in repository ({}); pulling from upstream", req.http_path(), storage_path, e),
 	}
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
@@ -117,7 +131,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
 			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), None).await?,
-			Err(e) => return Err(e.into())
+			Err(e) => return Err(e.into()),
 		};
 		Manifest::new(manifest, media_type, digest)
 	};
@@ -134,7 +148,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 #[derive(Debug, Deserialize)]
 pub struct BlobRequest {
 	image: ImageName,
-	digest: String
+	digest: String,
 }
 
 impl BlobRequest {
@@ -158,12 +172,19 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		return Err(Error::InvalidDigest);
 	}
 
-	let mut namespace = qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref());
-	let mut image: &str = req.image.as_ref();
-	if req.image.as_ref().split("/").count() > 2 {
-		namespace = req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref());
-		image = req.image.as_ref().trim_start_matches(req.image.as_ref().split("/").next().unwrap_or_default()).trim_start_matches("/");
-	}
+	let (namespace, image) = match qstr.ns.as_deref() {
+		Some(ns) => (ns, req.image.as_ref().trim_start_matches(&format!("{}/", ns))),
+		None => {
+			let mut parts = req.image.as_ref().splitn(2, '/');
+			match (parts.next(), parts.next()) {
+				(Some(ns), Some(image)) if image.contains('/') => (ns, image),
+				(Some(_), Some(_)) => (config.default_ns.as_ref(), req.image.as_ref()),
+				(Some(image), None) => (config.default_ns.as_ref(), image),
+				(None, Some(_)) => unreachable!(),
+				(None, None) => unreachable!(),
+			}
+		},
+	};
 
 	let storage_path = req.storage_path();
 	let max_age = config.upstream.lock().await.get(namespace)?.blob_invalidation_time;
@@ -172,7 +193,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 			HIT_COUNTER.with_label_values(&[namespace]).inc();
 			return Ok(HttpResponse::Ok().body(SizedStream::from(stream)));
 		},
-		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
+		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e),
 	};
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
@@ -183,7 +204,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		match upstream.client.get_blob_response(image, req.digest.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
 			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(image, req.digest.as_ref(), None).await?,
-			Err(e) => return Err(e.into())
+			Err(e) => return Err(e.into()),
 		}
 	};
 
@@ -198,7 +219,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 					Err(e) => {
 						error!("Error reading from upstream:  {}", e);
 						Err(ArcError::from(e))
-					}
+					},
 				};
 				if (tx.broadcast(chunk).await.is_err()) {
 					error!("Readers for proxied blob request {} all closed", req.http_path());

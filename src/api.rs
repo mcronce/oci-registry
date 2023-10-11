@@ -48,7 +48,7 @@ async fn authenticate_with_upstream(upstream: &mut Client, scope: &str) -> Resul
 }
 
 pub async fn root(config: web::Data<RequestConfig>, qstr: web::Query<ManifestQueryString>) -> Result<&'static str, Error> {
-	config.upstream.lock().await.get(qstr.ns.as_deref().unwrap_or_default())?.client.authenticate(&[]).await?;
+	config.upstream.lock().await.get(qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref()))?.client.authenticate(&[]).await?;
 	Ok("")
 }
 
@@ -64,6 +64,9 @@ impl ManifestRequest {
 	}
 
 	fn storage_path(&self, ns: &str) -> String {
+		if ns == self.image.as_ref().split("/").next().unwrap_or_default() {
+			return format!("manifests/{}/{}", self.image, self.reference);
+		}
 		format!("manifests/{}/{}/{}", ns, self.image, self.reference)
 	}
 }
@@ -86,8 +89,12 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_hits", "Number of manifests read from cache", &["namespace"]).unwrap());
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_misses", "Number of manifest requests that went to upstream", &["namespace"]).unwrap());
 
-	let namespace = qstr.ns.as_deref().unwrap_or_else(|| req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref()));
+	let mut namespace = qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref());
+	if req.image.as_ref().split("/").count() > 2 {
+		namespace = req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref());
+	}
 
+	let image: &str = req.image.as_ref().trim_start_matches("docker.io/");
 	let max_age = config.upstream.lock().await.get(namespace)?.manifest_invalidation_time;
 	let storage_path = req.storage_path(namespace);
 	match config.repo.read(&storage_path, max_age).await {
@@ -104,11 +111,11 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 	let manifest = {
 		let mut upstream = config.upstream.lock().await;
 		let upstream = upstream.get(namespace)?;
-		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
+		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", image)).await?;
 		let reference = req.reference.to_str();
-		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(req.image.as_ref(), reference.as_ref(), Some(namespace)).await {
+		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
-			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(req.image.as_ref(), reference.as_ref(), None).await?,
+			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), None).await?,
 			Err(e) => return Err(e.into())
 		};
 		Manifest::new(manifest, media_type, digest)
@@ -150,8 +157,12 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		return Err(Error::InvalidDigest);
 	}
 
-	let namespace = qstr.ns.as_deref().unwrap_or_else(|| req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref()));
+	let mut namespace = qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref());
+	if req.image.as_ref().split("/").count() > 2 {
+		namespace = req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref());
+	}
 
+	let image: &str = req.image.as_ref().trim_start_matches("docker.io/");
 	let storage_path = req.storage_path();
 	let max_age = config.upstream.lock().await.get(namespace)?.blob_invalidation_time;
 	match config.repo.read(storage_path.as_ref(), max_age).await {
@@ -166,10 +177,10 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let response = {
 		let mut upstream = config.upstream.lock().await;
 		let upstream = upstream.get(namespace)?;
-		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", req.image.as_ref())).await?;
-		match upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), Some(namespace)).await {
+		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", image)).await?;
+		match upstream.client.get_blob_response(image, req.digest.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
-			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(req.image.as_ref(), req.digest.as_ref(), None).await?,
+			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(image, req.digest.as_ref(), None).await?,
 			Err(e) => return Err(e.into())
 		}
 	};

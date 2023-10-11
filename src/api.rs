@@ -54,16 +54,12 @@ pub async fn root(config: web::Data<RequestConfig>, qstr: web::Query<ManifestQue
 
 #[derive(Debug, Deserialize)]
 pub struct ManifestRequest {
-	namespace: Option<CompactString>,
 	image: ImageName,
 	reference: ImageReference
 }
 
 impl ManifestRequest {
 	fn http_path(&self) -> String {
-		if self.namespace.is_some() {
-			return format!("/{}/{}/manifests/{}", self.namespace.as_deref().unwrap(), self.image, self.reference)
-		}
 		format!("/{}/manifests/{}", self.image, self.reference)
 	}
 
@@ -90,7 +86,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_hits", "Number of manifests read from cache", &["namespace"]).unwrap());
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_misses", "Number of manifest requests that went to upstream", &["namespace"]).unwrap());
 
-	let namespace = qstr.ns.as_deref().unwrap_or_else(|| req.namespace.as_deref().unwrap_or_else(|| config.default_ns.as_ref()));
+	let namespace = qstr.ns.as_deref().unwrap_or_else(|| req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref()));
 
 	let max_age = config.upstream.lock().await.get(namespace)?.manifest_invalidation_time;
 	let storage_path = req.storage_path(namespace);
@@ -129,16 +125,12 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 
 #[derive(Debug, Deserialize)]
 pub struct BlobRequest {
-	namespace: Option<CompactString>,
 	image: ImageName,
 	digest: String
 }
 
 impl BlobRequest {
 	fn http_path(&self) -> String {
-		if self.namespace.is_some() {
-			return format!("/{}/{}/blobs/{}", self.namespace.as_deref().unwrap(), self.image, self.digest)
-		}
 		format!("/{}/blobs/{}", self.image, self.digest)
 	}
 
@@ -158,7 +150,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		return Err(Error::InvalidDigest);
 	}
 
-	let namespace = qstr.ns.as_deref().unwrap_or_else(|| req.namespace.as_deref().unwrap_or_else(|| config.default_ns.as_ref()));
+	let namespace = qstr.ns.as_deref().unwrap_or_else(|| req.image.as_ref().split("/").next().unwrap_or_else(|| config.default_ns.as_ref()));
 
 	let storage_path = req.storage_path();
 	let max_age = config.upstream.lock().await.get(namespace)?.blob_invalidation_time;

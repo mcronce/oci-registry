@@ -97,7 +97,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_misses", "Number of manifest requests that went to upstream", &["namespace"]).unwrap());
 
 	let (namespace, image) = match qstr.ns.as_deref() {
-		Some(ns) => (ns, req.image.as_ref().trim_start_matches(&format!("{}/", ns))),
+		Some(ns) => (ns, req.image.as_ref()),
 		None => {
 			let mut parts = req.image.as_ref().splitn(2, '/');
 			match (parts.next(), parts.next()) {
@@ -173,7 +173,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	}
 
 	let (namespace, image) = match qstr.ns.as_deref() {
-		Some(ns) => (ns, req.image.as_ref().trim_start_matches(&format!("{}/", ns))),
+		Some(ns) => (ns, req.image.as_ref()),
 		None => {
 			let mut parts = req.image.as_ref().splitn(2, '/');
 			match (parts.next(), parts.next()) {

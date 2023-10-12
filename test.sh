@@ -22,12 +22,6 @@ test() {
 
   rm -rf /tmp/oci-mirror
 
-  # Combination of both (shouldn't actually be used but doesn't hurt to test)
-  url="localhost:8080/v2/$1/$2?ns=$1"
-  curl -s -o /dev/null -w "  %{http_code}: $url\n" "$url"
-
-  rm -rf /tmp/oci-mirror
-
   # Special Docker Hub case falling back to default_ns
   if [ "$1" == "docker.io" ]; then
     url="localhost:8080/v2/$2"

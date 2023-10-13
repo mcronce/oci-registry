@@ -26,9 +26,9 @@ impl actix_web::ResponseError for Error {
 		match self {
 			Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::Upstream(e) => match e {
-				Upstream::UnexpectedHttpStatus(s) if *s == StatusCode::NOT_FOUND => *s,
+				Upstream::UnexpectedHttpStatus(StatusCode::NOT_FOUND) => StatusCode::NOT_FOUND,
 				Upstream::UnexpectedHttpStatus(_) => StatusCode::INTERNAL_SERVER_ERROR,
-				Upstream::Client { status } if *status == StatusCode::NOT_FOUND => *status,
+				Upstream::Client { status: StatusCode::NOT_FOUND } => StatusCode::NOT_FOUND,
 				Upstream::Client { .. } => StatusCode::INTERNAL_SERVER_ERROR,
 				_ => StatusCode::INTERNAL_SERVER_ERROR
 			},

@@ -19,7 +19,7 @@ use crate::util::SecretString;
 pub struct Client {
 	pub client: InnerClient,
 	pub manifest_invalidation_time: core::time::Duration,
-	pub blob_invalidation_time: core::time::Duration,
+	pub blob_invalidation_time: core::time::Duration
 }
 
 pub struct Clients(HashMap<CompactString, Client>);
@@ -40,7 +40,7 @@ impl Clients {
 	pub fn invalidation_config(&self) -> InvalidationConfig {
 		let mut config = InvalidationConfig {
 			blob: core::time::Duration::from_secs(10),
-			manifests: HashMap::with_capacity(self.0.len()),
+			manifests: HashMap::with_capacity(self.0.len())
 		};
 		for (ns, client) in self.0.iter() {
 			if (ns.is_empty()) {
@@ -64,7 +64,7 @@ impl FromIterator<(CompactString, Client)> for Clients {
 #[derive(Clone, Debug)]
 pub struct InvalidationConfig {
 	pub blob: core::time::Duration,
-	pub manifests: HashMap<CompactString, core::time::Duration>,
+	pub manifests: HashMap<CompactString, core::time::Duration>
 }
 
 const fn truth() -> bool {
@@ -99,7 +99,7 @@ pub struct SingleUpstreamConfig {
 	manifest_invalidation_time: Duration,
 	#[serde(default = "default_blob_invalidation_time")]
 	#[serde_as(as = "DisplayFromStr")]
-	blob_invalidation_time: Duration,
+	blob_invalidation_time: Duration
 }
 
 impl SingleUpstreamConfig {
@@ -117,7 +117,7 @@ impl SingleUpstreamConfig {
 			username: None,
 			password: None,
 			manifest_invalidation_time: default_manifest_invalidation_time(),
-			blob_invalidation_time: default_blob_invalidation_time(),
+			blob_invalidation_time: default_blob_invalidation_time()
 		}
 	}
 }
@@ -137,7 +137,7 @@ impl TryFrom<SingleUpstreamConfig> for Client {
 		Ok(Self {
 			client,
 			manifest_invalidation_time: config.manifest_invalidation_time.into(),
-			blob_invalidation_time: config.blob_invalidation_time.into(),
+			blob_invalidation_time: config.blob_invalidation_time.into()
 		})
 	}
 }
@@ -161,13 +161,13 @@ pub struct UpstreamConfig {
 	///
 	/// Example: `{"docker.io": {"username": "foo", "password": "bar"}, "namespace2": {"username":
 	/// {"aaa", "pasword": "bbb"}}`
-	upstream_credentials: String,
+	upstream_credentials: String
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CredentialsOverride<'a> {
 	username: &'a str,
-	password: &'a str,
+	password: &'a str
 }
 
 impl UpstreamConfig {
@@ -193,7 +193,7 @@ impl UpstreamConfig {
 							conf.password = Some(cred.password.into());
 							conf
 						},
-						None => conf,
+						None => conf
 					})
 					.map(|conf| Ok::<_, Error>((conf.namespace.clone(), conf.try_into()?)))
 					.collect::<Result<Clients, _>>()?
@@ -201,7 +201,7 @@ impl UpstreamConfig {
 			None => {
 				let (username, password) = match upstream_credentials.remove("docker.io") {
 					Some(creds) => (Some(creds.username.into()), Some(creds.password.into())),
-					None => (None, None),
+					None => (None, None)
 				};
 				#[rustfmt::skip]
 				let client = SingleUpstreamConfig{
@@ -218,7 +218,7 @@ impl UpstreamConfig {
 				let mut map = HashMap::with_capacity(1);
 				map.insert("docker.io".into(), client);
 				Clients(map)
-			},
+			}
 		};
 
 		for (namespace, _) in upstream_credentials {

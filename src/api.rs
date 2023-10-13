@@ -33,7 +33,7 @@ use error::Error;
 pub struct RequestConfig {
 	repo: Repository,
 	upstream: Mutex<Clients>,
-	default_ns: CompactString,
+	default_ns: CompactString
 }
 
 impl RequestConfig {
@@ -62,7 +62,7 @@ pub async fn root(config: web::Data<RequestConfig>, qstr: web::Query<ManifestQue
 #[derive(Debug, Deserialize)]
 pub struct ManifestRequest {
 	image: ImageName,
-	reference: ImageReference,
+	reference: ImageReference
 }
 
 impl ManifestRequest {
@@ -73,14 +73,14 @@ impl ManifestRequest {
 	fn storage_path(&self, ns: &str) -> String {
 		match self.image.as_ref().splitn(2, '/').next() {
 			Some(part) if part == ns => format!("manifests/{}/{}", self.image, self.reference),
-			_ => format!("manifests/{}/{}/{}", ns, self.image, self.reference),
+			_ => format!("manifests/{}/{}/{}", ns, self.image, self.reference)
 		}
 	}
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ManifestQueryString {
-	ns: Option<CompactString>,
+	ns: Option<CompactString>
 }
 
 fn manifest_response(manifest: Manifest) -> HttpResponse {
@@ -105,9 +105,9 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 				(Some(_), Some(_)) => (config.default_ns.as_ref(), req.image.as_ref()),
 				(Some(image), None) => (config.default_ns.as_ref(), image),
 				(None, Some(_)) => unreachable!(),
-				(None, None) => unreachable!(),
+				(None, None) => unreachable!()
 			}
-		},
+		}
 	};
 
 	let max_age = config.upstream.lock().await.get(namespace)?.manifest_invalidation_time;
@@ -119,7 +119,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 			HIT_COUNTER.with_label_values(&[namespace]).inc();
 			return Ok(manifest_response(manifest));
 		},
-		Err(e) => warn!("{} not found at {} in repository ({}); pulling from upstream", req.http_path(), storage_path, e),
+		Err(e) => warn!("{} not found at {} in repository ({}); pulling from upstream", req.http_path(), storage_path, e)
 	}
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
@@ -131,7 +131,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
 			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), None).await?,
-			Err(e) => return Err(e.into()),
+			Err(e) => return Err(e.into())
 		};
 		Manifest::new(manifest, media_type, digest)
 	};
@@ -148,7 +148,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 #[derive(Debug, Deserialize)]
 pub struct BlobRequest {
 	image: ImageName,
-	digest: String,
+	digest: String
 }
 
 impl BlobRequest {
@@ -181,9 +181,9 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 				(Some(_), Some(_)) => (config.default_ns.as_ref(), req.image.as_ref()),
 				(Some(image), None) => (config.default_ns.as_ref(), image),
 				(None, Some(_)) => unreachable!(),
-				(None, None) => unreachable!(),
+				(None, None) => unreachable!()
 			}
-		},
+		}
 	};
 
 	let storage_path = req.storage_path();
@@ -193,7 +193,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 			HIT_COUNTER.with_label_values(&[namespace]).inc();
 			return Ok(HttpResponse::Ok().body(SizedStream::from(stream)));
 		},
-		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e),
+		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
@@ -204,7 +204,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		match upstream.client.get_blob_response(image, req.digest.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
 			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(image, req.digest.as_ref(), None).await?,
-			Err(e) => return Err(e.into()),
+			Err(e) => return Err(e.into())
 		}
 	};
 
@@ -219,7 +219,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 					Err(e) => {
 						error!("Error reading from upstream:  {}", e);
 						Err(ArcError::from(e))
-					},
+					}
 				};
 				if (tx.broadcast(chunk).await.is_err()) {
 					error!("Readers for proxied blob request {} all closed", req.http_path());

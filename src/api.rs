@@ -233,3 +233,77 @@ fn split_image<'a>(ns: Option<&'a str>, image: &'a str, default_ns: &'a str) -> 
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn split_image_with_ns() {
+		let (ns, image) = split_image(Some("docker.io"), "envoyproxy/envoy", "");
+		assert_eq!(ns, "docker.io");
+		assert_eq!(image, "envoyproxy/envoy");
+
+		let (ns, image) = split_image(Some("docker.io"), "library/busybox", "");
+		assert_eq!(ns, "docker.io");
+		assert_eq!(image, "library/busybox");
+
+		let (ns, image) = split_image(Some("docker.io"), "grafana/mimirtool", "");
+		assert_eq!(ns, "docker.io");
+		assert_eq!(image, "grafana/mimirtool");
+
+		let (ns, image) = split_image(Some("gcr.io"), "distroless/static", "");
+		assert_eq!(ns, "gcr.io");
+		assert_eq!(image, "distroless/static");
+
+		let (ns, image) = split_image(Some("gcr.io"), "flame-public/buildbuddy-app-onprem", "");
+		assert_eq!(ns, "gcr.io");
+		assert_eq!(image, "flame-public/buildbuddy-app-onprem");
+
+		let (ns, image) = split_image(Some("ghcr.io"), "buildbarn/bb-runner-installer", "");
+		assert_eq!(ns, "ghcr.io");
+		assert_eq!(image, "buildbarn/bb-runner-installer");
+	}
+
+	#[test]
+	fn split_image_without_ns() {
+		let (ns, image) = split_image(None, "docker.io/envoyproxy/envoy", "");
+		assert_eq!(ns, "docker.io");
+		assert_eq!(image, "envoyproxy/envoy");
+
+		let (ns, image) = split_image(None, "docker.io/library/busybox", "");
+		assert_eq!(ns, "docker.io");
+		assert_eq!(image, "library/busybox");
+
+		let (ns, image) = split_image(None, "docker.io/grafana/mimirtool", "");
+		assert_eq!(ns, "docker.io");
+		assert_eq!(image, "grafana/mimirtool");
+
+		let (ns, image) = split_image(None, "gcr.io/distroless/static", "");
+		assert_eq!(ns, "gcr.io");
+		assert_eq!(image, "distroless/static");
+
+		let (ns, image) = split_image(None, "gcr.io/flame-public/buildbuddy-app-onprem", "");
+		assert_eq!(ns, "gcr.io");
+		assert_eq!(image, "flame-public/buildbuddy-app-onprem");
+
+		let (ns, image) = split_image(None, "ghcr.io/buildbarn/bb-runner-installer", "");
+		assert_eq!(ns, "ghcr.io");
+		assert_eq!(image, "buildbarn/bb-runner-installer");
+	}
+
+	#[test]
+	fn split_image_without_ns_fallback() {
+		let (ns, image) = split_image(None, "envoyproxy/envoy", "docker.io");
+		assert_eq!(ns, "docker.io");
+		assert_eq!(image, "envoyproxy/envoy");
+
+		let (ns, image) = split_image(None, "library/busybox", "docker.io");
+		assert_eq!(ns, "docker.io");
+		assert_eq!(image, "library/busybox");
+
+		let (ns, image) = split_image(None, "grafana/mimirtool", "docker.io");
+		assert_eq!(ns, "docker.io");
+		assert_eq!(image, "grafana/mimirtool");
+	}
+}

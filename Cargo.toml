@@ -15,6 +15,10 @@ debug = 1
 debug = 1
 lto = "fat"
 
+[[bench]]
+name = "main"
+harness = false
+
 [dependencies]
 actix-web = "4.2.1"
 actix-web-prometheus = { version = "0.1.2", features = ["process"] }
@@ -49,6 +53,9 @@ time = { version = "0.3.15", features = ["parsing"] }
 tokio = { version = "1.24.1", features = ["fs", "io-util"] }
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+
+[dev-dependencies]
+divan = "0.1.0"
 
 # TODO:  Once https://github.com/rusoto/rusoto/pull/1981 is merged, remove these.
 [patch.crates-io]

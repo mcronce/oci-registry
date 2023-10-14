@@ -218,7 +218,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	Ok(HttpResponse::Ok().body(SizedStream::new(len, rx.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))))
 }
 
-fn split_image<'a>(ns: Option<&'a str>, image: &'a str, default_ns: &'a str) -> (&'a str, &'a str) {
+pub fn split_image<'a>(ns: Option<&'a str>, image: &'a str, default_ns: &'a str) -> (&'a str, &'a str) {
 	match ns {
 		Some(v) => (v, image),
 		None => {

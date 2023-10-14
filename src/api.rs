@@ -71,7 +71,7 @@ impl ManifestRequest {
 	}
 
 	fn storage_path(&self, ns: &str) -> String {
-		match self.image.as_ref().splitn(2, '/').next() {
+		match self.image.as_ref().split('/').next() {
 			Some(part) if part == ns => format!("manifests/{}/{}", self.image, self.reference),
 			_ => format!("manifests/{}/{}/{}", ns, self.image, self.reference)
 		}

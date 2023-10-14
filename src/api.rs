@@ -96,19 +96,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_hits", "Number of manifests read from cache", &["namespace"]).unwrap());
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("manifest_cache_misses", "Number of manifest requests that went to upstream", &["namespace"]).unwrap());
 
-	let (namespace, image) = match qstr.ns.as_deref() {
-		Some(ns) => (ns, req.image.as_ref()),
-		None => {
-			let mut parts = req.image.as_ref().splitn(2, '/');
-			match (parts.next(), parts.next()) {
-				(Some(ns), Some(image)) if image.contains('/') => (ns, image),
-				(Some(_), Some(_)) => (config.default_ns.as_ref(), req.image.as_ref()),
-				(Some(image), None) => (config.default_ns.as_ref(), image),
-				(None, Some(_)) => unreachable!(),
-				(None, None) => unreachable!()
-			}
-		}
-	};
+	let (namespace, image) = split_image(qstr.ns.as_deref(), req.image.as_ref(), config.default_ns.as_ref());
 
 	let max_age = config.upstream.lock().await.get(namespace)?.manifest_invalidation_time;
 	let storage_path = req.storage_path(namespace);
@@ -172,19 +160,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		return Err(Error::InvalidDigest);
 	}
 
-	let (namespace, image) = match qstr.ns.as_deref() {
-		Some(ns) => (ns, req.image.as_ref()),
-		None => {
-			let mut parts = req.image.as_ref().splitn(2, '/');
-			match (parts.next(), parts.next()) {
-				(Some(ns), Some(image)) if image.contains('/') => (ns, image),
-				(Some(_), Some(_)) => (config.default_ns.as_ref(), req.image.as_ref()),
-				(Some(image), None) => (config.default_ns.as_ref(), image),
-				(None, Some(_)) => unreachable!(),
-				(None, None) => unreachable!()
-			}
-		}
-	};
+	let (namespace, image) = split_image(qstr.ns.as_deref(), req.image.as_ref(), config.default_ns.as_ref());
 
 	let storage_path = req.storage_path();
 	let max_age = config.upstream.lock().await.get(namespace)?.blob_invalidation_time;
@@ -240,4 +216,20 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	}
 
 	Ok(HttpResponse::Ok().body(SizedStream::new(len, rx.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))))
+}
+
+fn split_image<'a>(ns: Option<&'a str>, image: &'a str, default_ns: &'a str) -> (&'a str, &'a str) {
+	match ns {
+		Some(v) => (v, image),
+		None => {
+			let mut parts = image.splitn(2, '/');
+			match (parts.next(), parts.next()) {
+				(Some(ns), Some(image)) if image.contains('/') => (ns, image),
+				(Some(_), Some(_)) => (default_ns, image),
+				(Some(image), None) => (default_ns, image),
+				(None, Some(_)) => unreachable!(),
+				(None, None) => unreachable!()
+			}
+		}
+	}
 }

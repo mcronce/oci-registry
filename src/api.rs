@@ -222,15 +222,9 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 pub fn split_image<'a>(ns: Option<&'a str>, image: &'a str, default_ns: &'a str) -> (&'a str, &'a str) {
 	match ns {
 		Some(v) => (v, image),
-		None => {
-			let mut parts = image.splitn(2, '/');
-			match (parts.next(), parts.next()) {
-				(Some(ns), Some(image)) if image.contains('/') => (ns, image),
-				(Some(_), Some(_)) => (default_ns, image),
-				(Some(image), None) => (default_ns, image),
-				(None, Some(_)) => unreachable!(),
-				(None, None) => unreachable!()
-			}
+		None => match image.split_once('/') {
+			Some((ns, image)) if image.contains('/') => (ns, image),
+			Some(_) | None => (default_ns, image)
 		}
 	}
 }

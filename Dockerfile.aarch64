@@ -12,6 +12,7 @@ ARG \
 WORKDIR /repo
 
 COPY Cargo.toml /repo/
+COPY benches /repo/benches
 RUN \
 	mkdir -v /repo/src && \
 	echo 'fn main() {}' > /repo/src/main.rs && \

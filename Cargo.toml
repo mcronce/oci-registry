@@ -14,6 +14,7 @@ debug = 1
 [profile.release]
 debug = 1
 lto = "fat"
+codegen-units = 1
 
 [[bench]]
 name = "main"

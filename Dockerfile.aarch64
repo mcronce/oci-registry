@@ -1,4 +1,4 @@
-FROM mcronce/rust-pgo:1.72 AS builder
+FROM mcronce/rust-pgo:1.73 AS builder
 
 ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
 ARG \

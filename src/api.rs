@@ -112,8 +112,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
 	let manifest = {
-		let mut upstream = config.upstream.lock().await;
-		let upstream = upstream.get(namespace)?;
+		let mut upstream = config.upstream.lock().await.get(namespace)?.clone();
 		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", image)).await?;
 		let reference = req.reference.to_str();
 		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), Some(namespace)).await {
@@ -174,8 +173,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
 	let response = {
-		let mut upstream = config.upstream.lock().await;
-		let upstream = upstream.get(namespace)?;
+		let mut upstream = config.upstream.lock().await.get(namespace)?.clone();
 		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", image)).await?;
 		match upstream.client.get_blob_response(image, req.digest.as_ref(), Some(namespace)).await {
 			Ok(v) => v,

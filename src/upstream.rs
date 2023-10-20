@@ -89,7 +89,7 @@ pub struct SingleUpstreamConfig {
 	#[serde(default)]
 	accept_invalid_certs: bool,
 	#[serde(default)]
-	user_agent: Option<String>,
+	user_agent: Option<arcstr::ArcStr>,
 	#[serde(default)]
 	username: Option<SecretString>,
 	#[serde(default)]

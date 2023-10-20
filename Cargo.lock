@@ -1755,6 +1755,7 @@ dependencies = [
  "actix-web",
  "actix-web-prometheus",
  "arcerror",
+ "arcstr",
  "async-broadcast",
  "async-stream",
  "async-walkdir",

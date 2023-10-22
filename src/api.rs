@@ -48,14 +48,8 @@ async fn authenticate_with_upstream(upstream: &mut Client, scope: &str) -> Resul
 }
 
 pub async fn root(config: web::Data<RequestConfig>, qstr: web::Query<ManifestQueryString>) -> Result<&'static str, Error> {
-	config
-		.upstream
-		.lock()
-		.await
-		.get(qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref()))?
-		.client
-		.authenticate(&[])
-		.await?;
+	let mut upstream = { config.upstream.lock().await.get(qstr.ns.as_deref().unwrap_or_else(|| config.default_ns.as_ref()))?.client.clone() };
+	upstream.authenticate(&[]).await?;
 	Ok("")
 }
 

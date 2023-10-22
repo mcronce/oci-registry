@@ -84,7 +84,6 @@ impl Repository {
 		Ok(result)
 	}
 
-	#[allow(dead_code)] // TODO:  Will be called by new delete endpoint very soon
 	pub async fn delete(&self, object: &str) -> Result<(), Error> {
 		match self {
 			Self::S3(r) => r.delete(object).await?,

@@ -131,6 +131,12 @@ async fn main() {
 						})
 					})
 			)
+			.service(
+				web::scope("/_admin")
+					.wrap(actix_web::middleware::Logger::default())
+					.route("/{image:[^{}]+}/manifests/{reference}", web::delete().to(api::delete_manifest))
+					.route("/{image:[^{}]+}/blobs/{digest}", web::delete().to(api::delete_blob))
+			)
 			.route("/", web::get().to(liveness))
 	});
 	match config.listen {

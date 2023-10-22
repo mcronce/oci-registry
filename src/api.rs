@@ -224,6 +224,19 @@ pub fn split_image<'a>(ns: Option<&'a str>, image: &'a str, default_ns: &'a str)
 	}
 }
 
+pub async fn delete_manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<&'static str, Error> {
+	let (namespace, _) = split_image(qstr.ns.as_deref(), req.image.as_ref(), config.default_ns.as_ref());
+	let storage_path = req.storage_path(namespace);
+	config.repo.delete(storage_path.as_ref()).await?;
+	Ok("")
+}
+
+pub async fn delete_blob(req: web::Path<BlobRequest>, config: web::Data<RequestConfig>) -> Result<&'static str, Error> {
+	let storage_path = req.storage_path();
+	config.repo.delete(storage_path.as_ref()).await?;
+	Ok("")
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

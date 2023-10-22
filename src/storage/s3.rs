@@ -20,6 +20,7 @@ use rusoto_core::ByteStream;
 use rusoto_core::Region;
 use rusoto_core::RusotoError;
 use rusoto_credential::StaticProvider;
+use rusoto_s3::DeleteObjectError;
 use rusoto_s3::DeleteObjectRequest;
 use rusoto_s3::GetObjectError;
 use rusoto_s3::GetObjectOutput;
@@ -33,7 +34,6 @@ use rusoto_s3::S3;
 use time::format_description::well_known::Rfc2822;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
-use tracing::error;
 use tracing::info;
 
 use super::ReadStream;
@@ -186,6 +186,16 @@ impl Repository {
 		Ok(())
 	}
 
+	pub async fn delete(&self, object: &str) -> Result<(), RusotoError<DeleteObjectError>> {
+		let req = DeleteObjectRequest {
+			bucket: self.bucket.to_string(),
+			key: object.to_owned(),
+			..Default::default()
+		};
+		self.inner.delete_object(req).await?;
+		Ok(())
+	}
+
 	pub async fn delete_old_objects(&self, older_than: SystemTime, prefix: &str) -> Result<usize, super::Error> {
 		let mut count = 0;
 		let mut stream = self.list_objects(prefix).await?;
@@ -196,17 +206,9 @@ impl Repository {
 			};
 			let modified = obj.last_modified.and_then(|s| OffsetDateTime::parse(&s, &Rfc3339).ok()).unwrap_or(OffsetDateTime::UNIX_EPOCH);
 			if (modified < older_than) {
-				let req = DeleteObjectRequest {
-					bucket: self.bucket.to_string(),
-					key: key.clone(),
-					..Default::default()
-				};
-				match self.inner.delete_object(req).await {
+				match self.delete(key.as_ref()).await {
 					Ok(_) => info!("Aged out {key}"),
-					Err(e) => {
-						error!("Error deleting {key}:  {e}");
-						continue;
-					}
+					Err(_) => continue
 				};
 				count += 1;
 			}

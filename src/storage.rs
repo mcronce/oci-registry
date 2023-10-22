@@ -84,6 +84,15 @@ impl Repository {
 		Ok(result)
 	}
 
+	#[allow(dead_code)] // TODO:  Will be called by new delete endpoint very soon
+	pub async fn delete(&self, object: &str) -> Result<(), Error> {
+		match self {
+			Self::S3(r) => r.delete(object).await?,
+			Self::Filesystem(r) => r.delete(object.as_ref()).await?
+		};
+		Ok(())
+	}
+
 	pub async fn delete_old_blobs(&self, older_than: SystemTime) -> Result<usize, Error> {
 		match self {
 			Self::S3(r) => r.delete_old_objects(older_than, "blobs/").await,

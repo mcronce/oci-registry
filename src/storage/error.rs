@@ -11,6 +11,8 @@ pub enum Error {
 	RusotoGet(#[from] RusotoError<rusoto_s3::GetObjectError>),
 	#[error("Failed to put object into S3: {0:?}")]
 	RusotoPut(#[from] RusotoError<rusoto_s3::PutObjectError>),
+	#[error("Failed to delete object from S3: {0:?}")]
+	RusotoDelete(#[from] RusotoError<rusoto_s3::DeleteObjectError>),
 	#[error("Failed to parse datetime: {0}")]
 	ParseTime(#[from] time::error::Parse),
 	#[error("Object too old: {0}")]

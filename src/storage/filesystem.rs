@@ -1,4 +1,5 @@
 use core::time::Duration;
+use std::path::Path;
 use std::time::SystemTime;
 
 use actix_web::web::Bytes;
@@ -95,6 +96,10 @@ impl Repository {
 		Ok(())
 	}
 
+	pub async fn delete(&self, path: &Path) -> Result<(), std::io::Error> {
+		remove_file(path).await
+	}
+
 	pub async fn delete_old_files(&self, older_than: SystemTime, prefix: &Utf8Path) -> Result<usize, super::Error> {
 		let mut count = 0;
 		let root = self.root.join(prefix);
@@ -130,7 +135,7 @@ impl Repository {
 				}
 			};
 			if (modified < older_than) {
-				match remove_file(&path).await {
+				match self.delete(&path).await {
 					Ok(_) => info!("Aged out '{}'", path.display()),
 					Err(e) => {
 						error!("Error deleting '{}':  {e}", path.display());

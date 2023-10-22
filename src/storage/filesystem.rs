@@ -75,25 +75,39 @@ impl Repository {
 		))
 	}
 
-	pub async fn write<S, E>(&self, object: &Utf8Path, mut reader: S) -> Result<(), super::Error>
+	pub async fn write<S, E>(&self, object: &Utf8Path, reader: S) -> Result<(), super::Error>
 	where
 		S: TryStream<Ok = Bytes, Error = E> + Unpin,
 		super::Error: From<E>
 	{
+		async fn _write<S, E>(file: &mut BufWriter<File>, mut reader: S) -> Result<(), super::Error>
+		where
+			S: TryStream<Ok = Bytes, Error = E> + Unpin,
+			super::Error: From<E>
+		{
+			while let Some(buf) = reader.try_next().await? {
+				if (buf.is_empty()) {
+					break;
+				}
+				file.write_all(buf.as_ref()).await?;
+			}
+			Ok(())
+		}
+
 		let path = self.full_path(object);
 		if let Some(parent) = path.parent() {
 			create_dir_all(parent).await?;
 		}
 		let file = OpenOptions::default().create(true).read(false).write(true).truncate(true).open(&path).await?;
 		let mut file = BufWriter::with_capacity(16384, file);
-		while let Some(buf) = reader.try_next().await? {
-			if (buf.is_empty()) {
-				break;
+
+		match _write(&mut file, reader).await {
+			Ok(_) => Ok(file.flush().await?),
+			Err(e) => {
+				self.delete(object.as_ref()).await?;
+				Err(e)
 			}
-			file.write_all(buf.as_ref()).await?;
 		}
-		file.flush().await?;
-		Ok(())
 	}
 
 	pub async fn delete(&self, path: &Path) -> Result<(), std::io::Error> {

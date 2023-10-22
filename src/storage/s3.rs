@@ -182,7 +182,12 @@ impl Repository {
 			body: Some(ByteStream::new(reader.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))),
 			..Default::default()
 		};
-		self.inner.put_object(req).await?;
+
+		if let Err(e) = self.inner.put_object(req).await {
+			self.delete(object).await?;
+			return Err(e.into());
+		}
+
 		Ok(())
 	}
 

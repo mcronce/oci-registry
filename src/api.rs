@@ -189,8 +189,11 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 						Err(ArcError::from(e))
 					}
 				};
+				let is_err = chunk.is_err();
 				if (tx.broadcast(chunk).await.is_err()) {
 					error!("Readers for proxied blob request {} all closed", req.http_path());
+					break;
+				} else if is_err {
 					break;
 				}
 			}

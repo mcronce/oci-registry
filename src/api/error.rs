@@ -23,7 +23,7 @@ pub enum Error {
 	#[error("I/O error: {0}")]
 	Io(#[from] std::io::Error),
 	#[error("JSON error: {0}")]
-	Json(#[from] serde_json::Error)
+	Json(#[from] serde_json::Error),
 }
 
 impl actix_web::ResponseError for Error {
@@ -31,8 +31,8 @@ impl actix_web::ResponseError for Error {
 		match self {
 			Self::Storage(e) => match e {
 				Storage::Io(e) if e.kind() == std::io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
-				Storage::RusotoGet(RusotoError::Service(GetObjectError::NoSuchKey(_))) => StatusCode::NOT_FOUND,
-				Storage::RusotoDelete(RusotoError::Unknown(BufferedHttpResponse { status, .. })) if *status == StatusCode::NOT_FOUND => StatusCode::NOT_FOUND,
+				Storage::RusotoGet(e) if matches!(e.as_ref(), &RusotoError::Service(GetObjectError::NoSuchKey(_))) => StatusCode::NOT_FOUND,
+				Storage::RusotoDelete(e) if matches!(e.as_ref(), &RusotoError::Unknown(BufferedHttpResponse { status: StatusCode::NOT_FOUND, .. })) => StatusCode::NOT_FOUND,
 				_ => StatusCode::INTERNAL_SERVER_ERROR
 			},
 			Self::Upstream(e) => match e {
@@ -45,7 +45,7 @@ impl actix_web::ResponseError for Error {
 			Self::InvalidDigest => StatusCode::NOT_FOUND,
 			Self::MissingContentLength => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
-			Self::Json(_) => StatusCode::INTERNAL_SERVER_ERROR
+			Self::Json(_) => StatusCode::INTERNAL_SERVER_ERROR,
 		}
 	}
 

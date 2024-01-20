@@ -6,7 +6,6 @@ use actix_web::http::header::HeaderName;
 use actix_web::rt;
 use actix_web::web;
 use actix_web::HttpResponse;
-use arcerror::ArcError;
 use compact_str::CompactString;
 use dkregistry::v2::Client;
 use futures::stream;
@@ -16,6 +15,8 @@ use once_cell::sync::Lazy;
 use prometheus::register_int_counter_vec;
 use prometheus::IntCounterVec;
 use serde::Deserialize;
+use sha2::Digest;
+use sha2::Sha256;
 use tokio::sync::Mutex;
 use tracing::error;
 use tracing::warn;
@@ -149,9 +150,16 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_cache_hits", "Number of blobs read from cache", &["namespace"]).unwrap());
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_cache_misses", "Number of blob requests that went to upstream", &["namespace"]).unwrap());
 
-	if (!req.digest.starts_with("sha256:")) {
+	let Some(wanted_digest_hex) = req.digest.strip_prefix("sha256:") else {
 		return Err(Error::InvalidDigest);
-	}
+	};
+	let wanted_digest = {
+		let mut buf = [0u8; 256 / 8];
+		if(hex::decode_to_slice(wanted_digest_hex, &mut buf[..]).is_err()) {
+			return Err(Error::InvalidDigest);
+		}
+		buf
+	};
 
 	let (namespace, image) = split_image(qstr.ns.as_deref(), req.image.as_ref(), config.default_ns.as_ref());
 
@@ -181,21 +189,34 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	{
 		let mut stream = response.stream();
 		rt::spawn(async move {
+			let mut hasher = Sha256::new();
 			while let Some(chunk) = stream.next().await {
 				let chunk = match chunk {
-					Ok(v) => Ok(v),
+					Ok(v) => {
+						hasher.update(&v);
+						Ok(v)
+					},
 					Err(e) => {
 						error!("Error reading from upstream:  {}", e);
-						Err(ArcError::from(e))
+						Err(crate::storage::Error::from(e))
 					}
 				};
 				let is_err = chunk.is_err();
 				if (tx.broadcast(chunk).await.is_err()) {
 					error!("Readers for proxied blob request {} all closed", req.http_path());
-					break;
+					return;
 				} else if is_err {
-					break;
+					return;
 				}
+			}
+			let result: [u8; 32] = hasher.finalize().into();
+			if(result != wanted_digest) {
+				let wanted_digest_hex = req.digest.strip_prefix("sha256:").unwrap(); // .unwrap() is safe because we already checked exactly this earlier in the request handler
+				let mut result_hex = [0u8; 64];
+				hex::encode_to_slice(&result[..], &mut result_hex).unwrap(); // .unwrap() is safe because we know that 32 * 2 = 64, so the hex-encoded result is guaranteed to fit in result_hex
+				let result_hex = std::str::from_utf8(&result_hex[..]).unwrap(); // .unwrap() is safe because we know that hex is ASCII
+				error!(req=req.http_path(), expected_digest=wanted_digest_hex, digest=result_hex, "Blob from upstream did not match expected digest");
+				let _ = tx.broadcast(Err(crate::storage::Error::UpstreamDataCorrupt)).await;
 			}
 		});
 	}

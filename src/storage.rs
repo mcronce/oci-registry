@@ -72,7 +72,7 @@ impl Repository {
 	pub async fn write<S, E>(&self, object: &str, reader: S, length: i64) -> Result<(), Error>
 	where
 		S: TryStream<Ok = Bytes, Error = E> + Unpin + Send + 'static,
-		E: std::error::Error + Send + Sync + 'static,
+		E: std::error::Error + From<std::io::Error> + Send + Sync + 'static,
 		Error: From<E>
 	{
 		#[allow(clippy::let_unit_value)] // Because it's likely that we will change the return type eventually, it'll require fewer changes, and it's harmless as-is.

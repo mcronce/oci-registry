@@ -78,18 +78,20 @@ impl Repository {
 	pub async fn write<S, E>(&self, object: &Utf8Path, reader: S) -> Result<(), super::Error>
 	where
 		S: TryStream<Ok = Bytes, Error = E> + Unpin,
+		E: std::error::Error + From<std::io::Error> + Send + Sync + 'static,
 		super::Error: From<E>
 	{
 		async fn _write<S, E>(file: &mut BufWriter<File>, mut reader: S) -> Result<(), super::Error>
 		where
 			S: TryStream<Ok = Bytes, Error = E> + Unpin,
+			E: std::error::Error + From<std::io::Error> + Send + Sync + 'static,
 			super::Error: From<E>
 		{
 			while let Some(buf) = reader.try_next().await? {
 				if (buf.is_empty()) {
 					break;
 				}
-				file.write_all(buf.as_ref()).await?;
+				file.write_all(buf.as_ref()).await.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
 			}
 			Ok(())
 		}

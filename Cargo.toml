@@ -23,7 +23,7 @@ harness = false
 [dependencies]
 actix-web = "4.2.1"
 actix-web-prometheus = { version = "0.1.2", features = ["process"] }
-arcerror = "0.1.0"
+arcerror = "0.1.5"
 arcstr = { version = "1.1.5", features = ["serde"] }
 async-broadcast = "0.6.0"
 async-stream = "0.3.3"

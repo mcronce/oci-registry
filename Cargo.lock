@@ -325,9 +325,9 @@ dependencies = [
 
 [[package]]
 name = "arcerror"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78dc4c53d2d8a14151a706422387c0514bc64b391b5aca4573c575ea703b7560"
+checksum = "1e27245b5205290df2dfe1069e064736c2e66afd8bf670ecbdef665ef5472ffa"
 
 [[package]]
 name = "arcstr"

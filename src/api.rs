@@ -226,7 +226,10 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		let config = config.clone();
 		rt::spawn(async move {
 			if let Err(e) = config.repo.write(storage_path.as_ref(), rx2, len.try_into().unwrap_or(i64::MAX)).await {
-				error!("{}", e);
+				error!(error=%e, "Failed to write blob to storage");
+				if let Err(e) = config.repo.delete(storage_path.as_ref()).await {
+					error!(error=%e, "Failed to delete failed blob from storage");
+				}
 			}
 		});
 	}

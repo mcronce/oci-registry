@@ -8,15 +8,12 @@ use actix_web::web;
 use actix_web::HttpResponse;
 use compact_str::CompactString;
 use dkregistry::v2::Client;
-use futures::stream;
-use futures::StreamExt;
-use futures::TryStreamExt;
+use futures::stream::StreamExt;
+use futures::stream::TryStreamExt;
 use once_cell::sync::Lazy;
 use prometheus::register_int_counter_vec;
 use prometheus::IntCounterVec;
 use serde::Deserialize;
-use sha2::Digest;
-use sha2::Sha256;
 use tokio::sync::Mutex;
 use tracing::error;
 use tracing::warn;
@@ -30,6 +27,8 @@ use crate::upstream::Clients;
 pub mod error;
 use error::should_retry_without_namespace;
 use error::Error;
+pub mod stream;
+use stream::DigestCheckedStream;
 
 pub struct RequestConfig {
 	repo: Repository,
@@ -120,7 +119,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 
 	let body = serde_json::to_vec(&manifest).unwrap();
 	let len = body.len().try_into().unwrap_or(i64::MAX);
-	if let Err(e) = config.repo.write(&storage_path, stream::iter(iter::once(Result::<_, std::io::Error>::Ok(body.into()))), len).await {
+	if let Err(e) = config.repo.write(&storage_path, futures::stream::iter(iter::once(Result::<_, std::io::Error>::Ok(body.into()))), len).await {
 		error!("{}", e);
 	}
 
@@ -187,18 +186,14 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let len = response.size().ok_or(Error::MissingContentLength)?;
 	let (tx, rx) = async_broadcast::broadcast(16);
 	{
-		let mut stream = response.stream();
+		let mut stream = DigestCheckedStream::new(response.stream().err_into::<crate::storage::Error>(), wanted_digest);
 		rt::spawn(async move {
-			let mut hasher = Sha256::new();
 			while let Some(chunk) = stream.next().await {
 				let chunk = match chunk {
-					Ok(v) => {
-						hasher.update(&v);
-						Ok(v)
-					},
+					Ok(v) => Ok(v),
 					Err(e) => {
 						error!("Error reading from upstream:  {}", e);
-						Err(crate::storage::Error::from(e))
+						Err(e)
 					}
 				};
 				let is_err = chunk.is_err();
@@ -208,15 +203,6 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 				} else if is_err {
 					return;
 				}
-			}
-			let result: [u8; 32] = hasher.finalize().into();
-			if(result != wanted_digest) {
-				let wanted_digest_hex = req.digest.strip_prefix("sha256:").unwrap(); // .unwrap() is safe because we already checked exactly this earlier in the request handler
-				let mut result_hex = [0u8; 64];
-				hex::encode_to_slice(&result[..], &mut result_hex).unwrap(); // .unwrap() is safe because we know that 32 * 2 = 64, so the hex-encoded result is guaranteed to fit in result_hex
-				let result_hex = std::str::from_utf8(&result_hex[..]).unwrap(); // .unwrap() is safe because we know that hex is ASCII
-				error!(req=req.http_path(), expected_digest=wanted_digest_hex, digest=result_hex, "Blob from upstream did not match expected digest");
-				let _ = tx.broadcast(Err(crate::storage::Error::UpstreamDataCorrupt)).await;
 			}
 		});
 	}

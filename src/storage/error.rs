@@ -1,5 +1,6 @@
 use arcerror::ArcError;
 use rusoto_core::RusotoError;
+use crate::api::stream::DigestMismatchError;
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum Error {
@@ -19,8 +20,8 @@ pub enum Error {
 	ObjectTooOld(humantime::Duration),
 	#[error("Error reading from upstream: {0}")]
 	Upstream(ArcError<dkregistry::errors::Error>),
-	#[error("While downloading from upstream, blob did not match expected digest")]
-	UpstreamDataCorrupt
+	#[error("{0}")]
+	DataCorrupt(#[from] DigestMismatchError),
 }
 
 impl From<std::io::Error> for Error {

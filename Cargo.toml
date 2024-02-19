@@ -38,6 +38,7 @@ hex = "0.4.3"
 humantime = "2.1.0"
 lazy-regex = "3.0.0"
 once_cell = { version = "1.18.0", default-features = false, features = ["parking_lot"] }
+pin-project = "1.1.4"
 prometheus = { version = "0.13.3", default-features = false }
 regex = "1.6.0"
 rusoto_core = { version = "0.48.0", default-features = false, features = ["hyper-rustls", "flate2"] }

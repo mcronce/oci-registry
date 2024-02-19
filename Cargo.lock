@@ -1846,6 +1846,7 @@ dependencies = [
  "humantime",
  "lazy-regex",
  "once_cell",
+ "pin-project",
  "prometheus",
  "regex",
  "rusoto_core",

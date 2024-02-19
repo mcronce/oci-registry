@@ -49,6 +49,10 @@ impl ReadStream {
 		Self { length, inner }
 	}
 
+	pub fn length(&self) -> u64 {
+		self.length
+	}
+
 	pub fn into_inner(self) -> BoxStream<'static, Result<Bytes, std::io::Error>> {
 		self.inner
 	}

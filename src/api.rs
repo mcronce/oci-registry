@@ -167,7 +167,9 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	match config.repo.read(storage_path.as_ref(), max_age).await {
 		Ok(stream) => {
 			HIT_COUNTER.with_label_values(&[namespace]).inc();
-			return Ok(HttpResponse::Ok().body(SizedStream::from(stream)));
+			let length = stream.length();
+			let stream = DigestCheckedStream::<_, crate::storage::Error, _>::new(stream.into_inner(), wanted_digest);
+			return Ok(HttpResponse::Ok().body(SizedStream::new(length, stream)));
 		},
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};

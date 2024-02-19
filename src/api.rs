@@ -186,7 +186,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let len = response.size().ok_or(Error::MissingContentLength)?;
 	let (tx, rx) = async_broadcast::broadcast(16);
 	{
-		let mut stream = DigestCheckedStream::new(response.stream().err_into::<crate::storage::Error>(), wanted_digest);
+		let mut stream = DigestCheckedStream::<_, crate::storage::Error, _>::new(response.stream().err_into::<crate::storage::Error>(), wanted_digest);
 		rt::spawn(async move {
 			while let Some(chunk) = stream.next().await {
 				let chunk = match chunk {

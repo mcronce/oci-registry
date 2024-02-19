@@ -1,5 +1,6 @@
 use arcerror::ArcError;
 use rusoto_core::RusotoError;
+
 use crate::api::stream::DigestMismatchError;
 
 #[derive(Debug, Clone, thiserror::Error)]

@@ -1,29 +1,34 @@
 use core::fmt;
+use core::marker::PhantomData;
 use core::pin::Pin;
 
 use actix_web::web::Bytes;
 use futures::stream::Stream;
 use futures::task::Context;
 use futures::task::Poll;
+use pin_project::pin_project;
 use sha2::Digest;
 use sha2::Sha256;
 
-use crate::storage::Error;
-
-pub struct DigestCheckedStream<S>
+#[pin_project]
+pub struct DigestCheckedStream<S, E, IE>
 where
-	S: Stream<Item = Result<Bytes, Error>> + Unpin,
+	S: Stream<Item = Result<Bytes, IE>> + Unpin,
+	E: std::error::Error + From<IE> + From<DigestMismatchError> + 'static
 {
+	#[pin]
 	inner: S,
 	wanted_digest: [u8; 32],
 	hasher: Option<Sha256>,
+	_e: PhantomData<E>
 }
 
-impl<S> Stream for DigestCheckedStream<S>
+impl<S, E, IE> Stream for DigestCheckedStream<S, E, IE>
 where
-	S: Stream<Item = Result<Bytes, Error>> + Unpin,
+	S: Stream<Item = Result<Bytes, IE>> + Unpin,
+	E: std::error::Error + From<IE> + From<DigestMismatchError> + 'static
 {
-	type Item = Result<Bytes, Error>;
+	type Item = Result<Bytes, E>;
 
 	fn poll_next(mut self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
 		let Poll::Ready(chunk) = Pin::new(&mut self.inner).poll_next(ctx) else {
@@ -54,7 +59,7 @@ where
 			};
 		};
 		let Ok(chunk) = chunk else {
-			return Poll::Ready(Some(chunk.into()));
+			return Poll::Ready(Some(chunk.map_err(Into::into)));
 		};
 		if let Some(h) = self.hasher.as_mut() {
 			h.update(&chunk);
@@ -63,15 +68,17 @@ where
 	}
 }
 
-impl<S> DigestCheckedStream<S>
+impl<S, E, IE> DigestCheckedStream<S, E, IE>
 where
-	S: Stream<Item = Result<Bytes, Error>> + Unpin,
+	S: Stream<Item = Result<Bytes, IE>> + Unpin,
+	E: std::error::Error + From<IE> + From<DigestMismatchError> + 'static
 {
 	pub fn new(inner: S, wanted_digest: [u8; 32]) -> Self {
 		Self{
 			inner,
 			wanted_digest,
-			hasher: Some(Sha256::new())
+			hasher: Some(Sha256::new()),
+			_e: PhantomData::default()
 		}
 	}
 }

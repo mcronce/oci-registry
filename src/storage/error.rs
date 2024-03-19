@@ -22,7 +22,7 @@ pub enum Error {
 	#[error("Error reading from upstream: {0}")]
 	Upstream(ArcError<dkregistry::errors::Error>),
 	#[error("{0}")]
-	DataCorrupt(#[from] DigestMismatchError),
+	DataCorrupt(#[from] DigestMismatchError)
 }
 
 impl From<std::io::Error> for Error {
@@ -66,4 +66,3 @@ impl From<dkregistry::errors::Error> for Error {
 		Self::Upstream(ArcError::from(inner))
 	}
 }
-

@@ -49,10 +49,7 @@ where
 					match (result == self.wanted_digest) {
 						true => Poll::Ready(None),
 						false => {
-							let error = DigestMismatchError{
-								expected: self.wanted_digest,
-								actual: result
-							};
+							let error = DigestMismatchError { expected: self.wanted_digest, actual: result };
 							Poll::Ready(Some(Err(error.into())))
 						}
 					}
@@ -75,7 +72,7 @@ where
 	E: std::error::Error + From<IE> + From<DigestMismatchError> + 'static
 {
 	pub fn new(inner: S, wanted_digest: [u8; 32]) -> Self {
-		Self{
+		Self {
 			inner,
 			wanted_digest,
 			hasher: Some(Sha256::new()),
@@ -118,4 +115,3 @@ where
 	}
 	Ok(hasher.finalize().into())
 }
-

@@ -119,7 +119,11 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 
 	let body = serde_json::to_vec(&manifest).unwrap();
 	let len = body.len().try_into().unwrap_or(i64::MAX);
-	if let Err(e) = config.repo.write(&storage_path, futures::stream::iter(iter::once(Result::<_, std::io::Error>::Ok(body.into()))), len).await {
+	if let Err(e) = config
+		.repo
+		.write(&storage_path, futures::stream::iter(iter::once(Result::<_, std::io::Error>::Ok(body.into()))), len)
+		.await
+	{
 		error!("{}", e);
 	}
 
@@ -154,7 +158,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	};
 	let wanted_digest = {
 		let mut buf = [0u8; 256 / 8];
-		if(hex::decode_to_slice(wanted_digest_hex, &mut buf[..]).is_err()) {
+		if (hex::decode_to_slice(wanted_digest_hex, &mut buf[..]).is_err()) {
 			return Err(Error::InvalidDigest);
 		}
 		buf
@@ -167,7 +171,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	match config.repo.read(storage_path.as_ref(), max_age).await {
 		Ok(stream) => {
 			let hash = stream::hash(stream.into_inner()).await?;
-			if(hash != wanted_digest) {
+			if (hash != wanted_digest) {
 				error!(storage_path, "Digest mismatch");
 				config.repo.delete(storage_path.as_ref()).await?;
 				return Ok(HttpResponse::InternalServerError().body("Internal digest mismatch"));

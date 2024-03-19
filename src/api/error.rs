@@ -26,7 +26,7 @@ pub enum Error {
 	#[error("JSON error: {0}")]
 	Json(#[from] serde_json::Error),
 	#[error("{0}")]
-	DataCorrupt(#[from] DigestMismatchError),
+	DataCorrupt(#[from] DigestMismatchError)
 }
 
 impl actix_web::ResponseError for Error {
@@ -63,4 +63,3 @@ impl actix_web::ResponseError for Error {
 pub fn should_retry_without_namespace(err: &Upstream) -> bool {
 	matches!(err, dkregistry::errors::Error::Reqwest(_) | dkregistry::errors::Error::UnexpectedHttpStatus(_) | dkregistry::errors::Error::Client { .. })
 }
-

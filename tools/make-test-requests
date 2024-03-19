@@ -7,12 +7,15 @@
 
 	for i in {0..3}; do
 		COUNT=0;
-		cat "$(cd "$(dirname "${0}")"; pwd)/../testdata/requests.txt" | sed 's/^\s\+[0-9]\+\s\+//' | while read method request; do
-			if [ $((COUNT % 5)) -eq 0 ] || [ $((COUNT % 11)) -eq 0 ] || [ $((COUNT % 19)) -eq 0 ]; then
-				echo 'GET /'
-			fi
-			echo "$method $request"
-			COUNT=$((COUNT + 1));
+		cat "$(cd "$(dirname "${0}")"; pwd)/../testdata/images.txt" | grep -v '^#' | while read ns repo tag; do
+			manifest_hash="$(curl -svI "$1/v2/$repo/manifests/$tag?ns=$ns" 2>&1 | grep docker-content-digest: | head -n1 | cut -d: -f2- | sed -e 's/^\s\+//' -e 's/\s\+$//')";
+			curl -s "$1/v2/$repo/manifests/$manifest_hash?ns=$ns" | jq -r '.manifests[].digest' | while read manifest_hash; do
+				curl -s "$1/v2/$repo/manifests/$manifest_hash?ns=$ns" | jq -r '.config.digest, .layers[].digest' | while read blob_hash; do
+					echo "GET /v2/$repo/blobs/$blob_hash?ns=$ns";
+				done &
+				echo 'GET /';
+			done &
+			echo 'GET /';
 		done
 
 		for i in {0..500}; do

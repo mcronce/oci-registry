@@ -58,7 +58,7 @@ async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
 	let mut count = match repo.delete_old_blobs(now - upstream.blob).await {
 		Ok(v) => v,
 		Err(error) => {
-			error!(?error, "Error cleaning up blobs");
+			error!(%error, "Error cleaning up blobs");
 			0
 		}
 	};
@@ -66,14 +66,14 @@ async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
 		let ns: &str = ns.as_ref();
 		match repo.delete_old_manifests(ns, now - *age).await {
 			Ok(v) => count += v,
-			Err(error) => error!(?error, namespace = ns, "Error cleaning up manifests")
+			Err(error) => error!(%error, namespace = ns, "Error cleaning up manifests")
 		};
 	}
 
 	if (count > 0) {
-		warn!("Aged out {count} objects");
+		warn!(count, "Aged out objects");
 	} else {
-		info!("Aged out {count} objects");
+		info!(count, "Aged out objects");
 	}
 }
 

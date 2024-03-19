@@ -101,7 +101,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 			HIT_COUNTER.with_label_values(&[namespace]).inc();
 			return Ok(manifest_response(manifest));
 		},
-		Err(e) => warn!("{} not found at {} in repository ({}); pulling from upstream", req.http_path(), storage_path, e)
+		Err(error) => warn!(path = req.http_path(), storage_path, %error, "Manifest not found in repository; pulling from upstream")
 	}
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
@@ -119,12 +119,12 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 
 	let body = serde_json::to_vec(&manifest).unwrap();
 	let len = body.len().try_into().unwrap_or(i64::MAX);
-	if let Err(e) = config
+	if let Err(error) = config
 		.repo
 		.write(&storage_path, futures::stream::iter(iter::once(Result::<_, std::io::Error>::Ok(body.into()))), len)
 		.await
 	{
-		error!("{}", e);
+		error!(%error, "Failed to write manifest to storage");
 	}
 
 	Ok(manifest_response(manifest))
@@ -180,7 +180,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 			let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
 			return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
 		},
-		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
+		Err(error) => warn!(path = storage_path, %error, "Blob not found in repository; pulling from upstream")
 	};
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
@@ -202,14 +202,14 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 			while let Some(chunk) = stream.next().await {
 				let chunk = match chunk {
 					Ok(v) => Ok(v),
-					Err(e) => {
-						error!("Error reading from upstream:  {}", e);
-						Err(e)
+					Err(error) => {
+						error!(%error, "Error reading from upstream");
+						Err(error)
 					}
 				};
 				let is_err = chunk.is_err();
 				if (tx.broadcast(chunk).await.is_err()) {
-					error!("Readers for proxied blob request {} all closed", req.http_path());
+					error!(path = req.http_path(), "Readers for proxied blob request all closed");
 					return;
 				} else if is_err {
 					return;
@@ -222,10 +222,10 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		let rx2 = rx.clone();
 		let config = config.clone();
 		rt::spawn(async move {
-			if let Err(e) = config.repo.write(storage_path.as_ref(), rx2, len.try_into().unwrap_or(i64::MAX)).await {
-				error!(error=%e, "Failed to write blob to storage");
-				if let Err(e) = config.repo.delete(storage_path.as_ref()).await {
-					error!(error=%e, "Failed to delete failed blob from storage");
+			if let Err(error) = config.repo.write(storage_path.as_ref(), rx2, len.try_into().unwrap_or(i64::MAX)).await {
+				error!(%error, "Failed to write blob to storage");
+				if let Err(error) = config.repo.delete(storage_path.as_ref()).await {
+					error!(%error, "Failed to delete failed blob from storage");
 				}
 			}
 		});

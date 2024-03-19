@@ -126,8 +126,8 @@ impl Repository {
 				Ok(v) => v,
 				// If we get a NotFound error on the first iteration, it only means that we haven't cached anything under this prefix yet
 				Err(e) if e.kind() == std::io::ErrorKind::NotFound && first_iteration => continue,
-				Err(e) => {
-					error!("Error walking '{prefix}':  {e}");
+				Err(error) => {
+					error!(path = %prefix, %error, "Error walking directory");
 					continue;
 				}
 			};
@@ -135,8 +135,8 @@ impl Repository {
 			let path = entry.path();
 			let metadata = match entry.metadata().await {
 				Ok(v) => v,
-				Err(e) => {
-					error!("Error reading metadata for {}:  {e}", path.display());
+				Err(error) => {
+					error!(path = %path.display(), %error, "Error reading metadata");
 					continue;
 				}
 			};
@@ -145,16 +145,16 @@ impl Repository {
 			}
 			let modified = match metadata.modified() {
 				Ok(v) => v,
-				Err(e) => {
-					error!("Error reading mtime for {}:  {e}", path.display());
+				Err(error) => {
+					error!(path = %path.display(), %error, "Error reading mtime");
 					continue;
 				}
 			};
 			if (modified < older_than) {
 				match self.delete(&path).await {
-					Ok(_) => info!("Aged out '{}'", path.display()),
-					Err(e) => {
-						error!("Error deleting '{}':  {e}", path.display());
+					Ok(_) => info!(path = %path.display(), "Aged out"),
+					Err(error) => {
+						error!(path = %path.display(), %error, "Error deleting object");
 						continue;
 					}
 				}

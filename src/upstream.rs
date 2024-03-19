@@ -26,7 +26,7 @@ pub struct Clients(HashMap<CompactString, Client>);
 impl Clients {
 	pub fn get<'a>(&'a mut self, key: &str) -> Result<&'a mut Client, Error> {
 		if (!self.0.contains_key(key)) {
-			warn!("Unknown namespace '{}' passed; configuring with default settings", key);
+			warn!(namespace = key, "Unknown namespace passed; configuring with default settings");
 			self.insert(key.into(), SingleUpstreamConfig::new(key.into()))?;
 		}
 		Ok(self.0.get_mut(key).unwrap())
@@ -180,7 +180,7 @@ impl UpstreamConfig {
 				upstream_config
 					.into_iter()
 					.map(|conf| {
-						info!("Parsed upstream config: {:?}", conf);
+						info!(config = ?conf, "Parsed upstream config");
 						conf
 					})
 					.map(|mut conf| match upstream_credentials.remove::<str>(conf.namespace.as_ref()) {

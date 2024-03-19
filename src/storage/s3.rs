@@ -212,7 +212,7 @@ impl Repository {
 			let modified = obj.last_modified.and_then(|s| OffsetDateTime::parse(&s, &Rfc3339).ok()).unwrap_or(OffsetDateTime::UNIX_EPOCH);
 			if (modified < older_than) {
 				match self.delete(key.as_ref()).await {
-					Ok(_) => info!("Aged out {key}"),
+					Ok(_) => info!(object = key, "Aged out"),
 					Err(_) => continue
 				};
 				count += 1;

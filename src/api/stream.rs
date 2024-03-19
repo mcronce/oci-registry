@@ -76,7 +76,7 @@ where
 			inner,
 			wanted_digest,
 			hasher: Some(Sha256::new()),
-			_e: PhantomData::default()
+			_e: PhantomData
 		}
 	}
 }

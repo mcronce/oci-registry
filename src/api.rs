@@ -166,10 +166,15 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let max_age = config.upstream.lock().await.get(namespace)?.blob_invalidation_time;
 	match config.repo.read(storage_path.as_ref(), max_age).await {
 		Ok(stream) => {
+			let hash = stream::hash(stream.into_inner()).await?;
+			if(hash != wanted_digest) {
+				error!(storage_path, "Digest mismatch");
+				config.repo.delete(storage_path.as_ref()).await?;
+				return Ok(HttpResponse::InternalServerError().body("Internal digest mismatch"));
+			}
 			HIT_COUNTER.with_label_values(&[namespace]).inc();
-			let length = stream.length();
-			let stream = DigestCheckedStream::<_, crate::storage::Error, _>::new(stream.into_inner(), wanted_digest);
-			return Ok(HttpResponse::Ok().body(SizedStream::new(length, stream)));
+			let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
+			return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
 		},
 		Err(e) => warn!("{} not found in repository ({}); pulling from upstream", storage_path, e)
 	};

@@ -4,6 +4,7 @@ use core::pin::Pin;
 
 use actix_web::web::Bytes;
 use futures::stream::Stream;
+use futures::stream::StreamExt;
 use futures::task::Context;
 use futures::task::Poll;
 use pin_project::pin_project;
@@ -104,4 +105,17 @@ impl fmt::Display for DigestMismatchError {
 }
 
 impl std::error::Error for DigestMismatchError {}
+
+pub async fn hash<S, E>(mut stream: S) -> Result<[u8; 32], E>
+where
+	S: Stream<Item = Result<Bytes, E>> + Unpin,
+	E: std::error::Error + 'static
+{
+	let mut hasher = Sha256::new();
+	while let Some(chunk) = stream.next().await {
+		let chunk = chunk?;
+		hasher.update(&chunk);
+	}
+	Ok(hasher.finalize().into())
+}
 

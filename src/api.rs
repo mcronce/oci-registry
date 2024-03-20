@@ -173,14 +173,13 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		Ok(stream) => match config.check_cache_digest {
 			true => {
 				let hash = stream::hash(stream.into_inner()).await?;
-				if (hash != wanted_digest) {
-					error!(storage_path, "Digest mismatch");
-					config.repo.delete(storage_path.as_ref()).await?;
-					return Ok(HttpResponse::InternalServerError().body("Internal digest mismatch"));
+				if (hash == wanted_digest) {
+					HIT_COUNTER.with_label_values(&[namespace]).inc();
+					let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
+					return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
 				}
-				HIT_COUNTER.with_label_values(&[namespace]).inc();
-				let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
-				return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
+				error!(storage_path, "Digest mismatch");
+				config.repo.delete(storage_path.as_ref()).await?;
 			},
 			false => {
 				HIT_COUNTER.with_label_values(&[namespace]).inc();

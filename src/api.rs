@@ -33,12 +33,13 @@ use stream::DigestCheckedStream;
 pub struct RequestConfig {
 	repo: Repository,
 	upstream: Mutex<Clients>,
-	default_ns: CompactString
+	default_ns: CompactString,
+	check_cache_digest: bool
 }
 
 impl RequestConfig {
-	pub fn new(repo: Repository, upstream: Clients, default_ns: CompactString) -> Self {
-		Self { repo, upstream: Mutex::new(upstream), default_ns }
+	pub fn new(repo: Repository, upstream: Clients, default_ns: CompactString, check_cache_digest: bool) -> Self {
+		Self { repo, upstream: Mutex::new(upstream), default_ns, check_cache_digest }
 	}
 }
 
@@ -169,16 +170,23 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let storage_path = req.storage_path();
 	let max_age = config.upstream.lock().await.get(namespace)?.blob_invalidation_time;
 	match config.repo.read(storage_path.as_ref(), max_age).await {
-		Ok(stream) => {
-			let hash = stream::hash(stream.into_inner()).await?;
-			if (hash != wanted_digest) {
-				error!(storage_path, "Digest mismatch");
-				config.repo.delete(storage_path.as_ref()).await?;
-				return Ok(HttpResponse::InternalServerError().body("Internal digest mismatch"));
+		Ok(stream) => match config.check_cache_digest {
+			true => {
+				let hash = stream::hash(stream.into_inner()).await?;
+				if (hash != wanted_digest) {
+					error!(storage_path, "Digest mismatch");
+					config.repo.delete(storage_path.as_ref()).await?;
+					return Ok(HttpResponse::InternalServerError().body("Internal digest mismatch"));
+				}
+				HIT_COUNTER.with_label_values(&[namespace]).inc();
+				let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
+				return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
+			},
+			false => {
+				HIT_COUNTER.with_label_values(&[namespace]).inc();
+				let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
+				return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
 			}
-			HIT_COUNTER.with_label_values(&[namespace]).inc();
-			let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
-			return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
 		},
 		Err(error) => warn!(path = storage_path, %error, "Blob not found in repository; pulling from upstream")
 	};

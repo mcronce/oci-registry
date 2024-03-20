@@ -35,6 +35,12 @@ struct Config {
 	listen: socket_address::Address,
 	#[clap(env, long, default_value = "docker.io")]
 	default_namespace: CompactString,
+	/// If enabled, will validate a blob's SHA256 digest when reading it from cache storage; if the
+	/// digest doesn't match what was expected based on the request URL, it will be deleted from
+	/// storage and re-retrieved from upstream.  This has an impact on performance, as the entire
+	/// blob needs to be read from storage twice instead of just once.
+	#[clap(env, long, default_value_t = false)]
+	check_cache_digest: bool,
 	#[clap(flatten)]
 	upstream: UpstreamConfig,
 	#[clap(subcommand)]
@@ -102,7 +108,7 @@ async fn main() {
 	};
 
 	let prometheus = PrometheusMetricsBuilder::new("http").endpoint("/metrics").build().unwrap();
-	let per_request_config = web::Data::new(api::RequestConfig::new(repo, upstream, config.default_namespace));
+	let per_request_config = web::Data::new(api::RequestConfig::new(repo, upstream, config.default_namespace, config.check_cache_digest));
 
 	let server = actix_web::HttpServer::new(move || {
 		actix_web::App::new()

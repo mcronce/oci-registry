@@ -8,6 +8,7 @@ image:
 replicas: 2
 
 registry:
+  check_cache_digest: false
   upstream:
     config:
       deploy: true

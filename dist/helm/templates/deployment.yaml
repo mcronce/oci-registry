@@ -45,6 +45,10 @@ spec:
           {{- else }}
           {{- fail "registry.storage.mode must be either 's3' or 'filesystem'" -}}
           {{- end }}
+            {{- if .Values.registry.check_cache_digest }}
+            - name: CHECK_CACHE_DIGEST
+              value: "1"
+            {{- end }}
             - name: UPSTREAM_CONFIG_FILE
               value: /upstream.yaml
             - name: DEFAULT_UPSTREAM_NAMESPACE

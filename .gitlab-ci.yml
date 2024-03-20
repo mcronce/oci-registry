@@ -13,6 +13,7 @@ variables:
   DOCKER_HOST: tcp://localhost:2375
   DOCKER_TLS_CERTDIR: ""
   RUSTC_WRAPPER: /usr/bin/sccache
+  SCCACHE_REGION: us-east-1
   SCCACHE_ENDPOINT: rgw.storage.home.quadra-tec.net:7480
   SCCACHE_S3_USE_SSL: "off"
   SCCACHE_BUCKET: gitlab-sccache
@@ -51,7 +52,7 @@ Build x86-64 container image:
     - bash -ec 'find Cargo.toml src -type f | while read file; do revision="$(git rev-list -n 1 HEAD "${file}")"; timestamp="$(git show --pretty=format:%ai --abbrev-commit "${revision}" | head -n1)"; touch -d "${timestamp}" "${file}"; done'
   script:
     - |
-      BUILD_ARGS="--build-arg=CARGO_INCREMENTAL --build-arg=RUSTC_WRAPPER --build-arg=SCCACHE_ENDPOINT --build-arg=SCCACHE_BUCKET --build-arg=AWS_ACCESS_KEY_ID --build-arg=AWS_SECRET_ACCESS_KEY"
+      BUILD_ARGS="--build-arg=CARGO_INCREMENTAL --build-arg=RUSTC_WRAPPER --build-arg=SCCACHE_REGION --build-arg=SCCACHE_ENDPOINT --build-arg=SCCACHE_BUCKET --build-arg=AWS_ACCESS_KEY_ID --build-arg=AWS_SECRET_ACCESS_KEY"
       docker build $BUILD_ARGS -f Dockerfile.x86-64 --cache-from "mcronce/oci-registry-builder" --target=builder -t "mcronce/oci-registry-builder" .
       docker build $BUILD_ARGS -f Dockerfile.x86-64 --cache-from "mcronce/oci-registry-builder" --cache-from "mcronce/oci-registry" -t "mcronce/oci-registry:amd64" .
     - mkdir -pv images

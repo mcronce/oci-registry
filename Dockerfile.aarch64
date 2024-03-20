@@ -32,6 +32,10 @@ RUN \
 RUN aarch64-linux-gnu-strip /repo/target/aarch64-unknown-linux-gnu/release/oci-registry
 
 FROM --platform=linux/arm64 arm64v8/debian:12
+RUN \
+	apt-get update && \
+	apt-get install -y ca-certificates \
+	&& rm -Rvf /var/lib/apt
 COPY --from=builder /repo/target/aarch64-unknown-linux-gnu/release/oci-registry /usr/local/bin/oci-registry
 EXPOSE 80
 ENV \

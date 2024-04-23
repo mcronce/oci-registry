@@ -47,7 +47,7 @@ spec:
           {{- end }}
             {{- if .Values.registry.check_cache_digest }}
             - name: CHECK_CACHE_DIGEST
-              value: "1"
+              value: "true"
             {{- end }}
             - name: UPSTREAM_CONFIG_FILE
               value: /upstream.yaml

@@ -116,7 +116,14 @@ async fn main() {
 		.buckets(&[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 30.0, 60.0, 120.0, 300.0])
 		.build()
 		.unwrap();
-	let per_request_config = web::Data::new(api::RequestConfig::new(repo, upstream, config.default_namespace, config.check_cache_digest));
+	let per_request_config = web::Data::new(api::RequestConfig::new(
+		repo,
+		upstream,
+		config.default_namespace,
+		config.check_cache_digest,
+		config.blob_chunk_read_timeout,
+		config.blob_chunk_write_timeout,
+	));
 
 	let server = actix_web::HttpServer::new(move || {
 		actix_web::App::new()

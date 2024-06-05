@@ -11,10 +11,13 @@ use dkregistry::v2::Client;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use once_cell::sync::Lazy;
+use prometheus::register_histogram_vec;
 use prometheus::register_int_counter_vec;
+use prometheus::HistogramVec;
 use prometheus::IntCounterVec;
 use serde::Deserialize;
 use tokio::sync::Mutex;
+use tokio::time::{timeout, Duration};
 use tracing::error;
 use tracing::warn;
 
@@ -34,12 +37,21 @@ pub struct RequestConfig {
 	repo: Repository,
 	upstream: Mutex<Clients>,
 	default_ns: CompactString,
-	check_cache_digest: bool
+	check_cache_digest: bool,
+	blob_chunk_read_timeout: Duration,
+	blob_chunk_write_timeout: Duration,
 }
 
 impl RequestConfig {
-	pub fn new(repo: Repository, upstream: Clients, default_ns: CompactString, check_cache_digest: bool) -> Self {
-		Self { repo, upstream: Mutex::new(upstream), default_ns, check_cache_digest }
+	pub fn new(repo: Repository, upstream: Clients, default_ns: CompactString, check_cache_digest: bool, blob_chunk_read_timeout: Duration, blob_chunk_write_timeout: Duration) -> Self {
+		Self {
+			repo,
+			upstream: Mutex::new(upstream),
+			default_ns,
+			check_cache_digest,
+			blob_chunk_read_timeout,
+			blob_chunk_write_timeout,
+		}
 	}
 }
 
@@ -57,7 +69,7 @@ pub async fn root(config: web::Data<RequestConfig>, qstr: web::Query<ManifestQue
 #[derive(Debug, Deserialize)]
 pub struct ManifestRequest {
 	image: ImageName,
-	reference: ImageReference
+	reference: ImageReference,
 }
 
 impl ManifestRequest {
@@ -68,14 +80,14 @@ impl ManifestRequest {
 	fn storage_path(&self, ns: &str) -> String {
 		match self.image.as_ref().split('/').next() {
 			Some(part) if part == ns => format!("manifests/{}/{}", self.image, self.reference),
-			_ => format!("manifests/{}/{}/{}", ns, self.image, self.reference)
+			_ => format!("manifests/{}/{}/{}", ns, self.image, self.reference),
 		}
 	}
 }
 
 #[derive(Debug, Deserialize)]
 pub struct ManifestQueryString {
-	ns: Option<CompactString>
+	ns: Option<CompactString>,
 }
 
 fn manifest_response(manifest: Manifest) -> HttpResponse {
@@ -102,7 +114,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 			HIT_COUNTER.with_label_values(&[namespace]).inc();
 			return Ok(manifest_response(manifest));
 		},
-		Err(error) => warn!(path = req.http_path(), storage_path, %error, "Manifest not found in repository; pulling from upstream")
+		Err(error) => warn!(path = req.http_path(), storage_path, %error, "Manifest not found in repository; pulling from upstream"),
 	}
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
@@ -113,7 +125,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
 			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), None).await?,
-			Err(e) => return Err(e.into())
+			Err(e) => return Err(e.into()),
 		};
 		Manifest::new(manifest, media_type, digest)
 	};
@@ -134,7 +146,7 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 #[derive(Debug, Deserialize)]
 pub struct BlobRequest {
 	image: ImageName,
-	digest: String
+	digest: String,
 }
 
 impl BlobRequest {
@@ -153,6 +165,10 @@ impl BlobRequest {
 pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<HttpResponse, Error> {
 	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_cache_hits", "Number of blobs read from cache", &["namespace"]).unwrap());
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_cache_misses", "Number of blob requests that went to upstream", &["namespace"]).unwrap());
+	static CHUNK_READ_DURATION_HISTOGRAM: Lazy<HistogramVec> = Lazy::new(|| register_histogram_vec!("blob_chunk_read_duration_seconds", "Duration of blob chunk reads", &["namespace"]).unwrap());
+	static CHUNK_READ_TIMEOUT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_chunk_read_timeouts", "Number of blob chunk reads that timed out", &["namespace"]).unwrap());
+	static CHUNK_WRITE_DURATION_HISTOGRAM: Lazy<HistogramVec> = Lazy::new(|| register_histogram_vec!("blob_chunk_write_duration_seconds", "Duration of blob chunk writes", &["namespace"]).unwrap());
+	static CHUNK_WRITE_TIMEOUT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_chunk_write_timeouts", "Number of blob chunk writes that timed out", &["namespace"]).unwrap());
 
 	let Some(wanted_digest_hex) = req.digest.strip_prefix("sha256:") else {
 		return Err(Error::InvalidDigest);
@@ -185,9 +201,9 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 				HIT_COUNTER.with_label_values(&[namespace]).inc();
 				let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
 				return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
-			}
+			},
 		},
-		Err(error) => warn!(path = storage_path, %error, "Blob not found in repository; pulling from upstream")
+		Err(error) => warn!(path = storage_path, %error, "Blob not found in repository; pulling from upstream"),
 	};
 
 	MISS_COUNTER.with_label_values(&[namespace]).inc();
@@ -197,7 +213,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		match upstream.client.get_blob_response(image, req.digest.as_ref(), Some(namespace)).await {
 			Ok(v) => v,
 			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(image, req.digest.as_ref(), None).await?,
-			Err(e) => return Err(e.into())
+			Err(e) => return Err(e.into()),
 		}
 	};
 
@@ -205,21 +221,49 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let (tx, rx) = async_broadcast::broadcast(16);
 	{
 		let mut stream = DigestCheckedStream::<_, crate::storage::Error, _>::new(response.stream().err_into::<crate::storage::Error>(), wanted_digest);
+		let http_path: String = req.http_path();
+		let chunk_read_timeout = config.blob_chunk_read_timeout.clone();
+		let chunk_write_timeout = config.blob_chunk_write_timeout.clone();
 		rt::spawn(async move {
-			while let Some(chunk) = stream.next().await {
+			while let Some(chunk) = {
+				let chunk_read_timer = CHUNK_READ_DURATION_HISTOGRAM.with_label_values(&[namespace]).start_timer();
+				let chunk_read_result = timeout(chunk_read_timeout, stream.next()).await;
+				chunk_read_timer.observe_duration();
+				match chunk_read_result {
+					Ok(chunk) => chunk,
+					Err(_) => {
+						CHUNK_READ_TIMEOUT_COUNTER.with_label_values(&[namespace]).inc();
+						error!("Timeout while reading chunk");
+						return;
+					},
+				}
+			} {
 				let chunk = match chunk {
 					Ok(v) => Ok(v),
 					Err(error) => {
 						error!(%error, "Error reading from upstream");
 						Err(error)
-					}
+					},
 				};
 				let is_err = chunk.is_err();
-				if (tx.broadcast(chunk).await.is_err()) {
-					error!(path = req.http_path(), "Readers for proxied blob request all closed");
-					return;
-				} else if is_err {
-					return;
+				let chunk_write_timer = CHUNK_WRITE_DURATION_HISTOGRAM.with_label_values(&[namespace]).start_timer();
+				let chunk_write_result = timeout(chunk_write_timeout, tx.broadcast(chunk)).await;
+				chunk_write_timer.observe_duration();
+				match chunk_write_result {
+					Ok(Ok(_)) => {
+						if is_err {
+							return;
+						}
+					},
+					Ok(Err(_)) => {
+						error!(path = http_path, "Readers for proxied blob request all closed");
+						return;
+					},
+					Err(_) => {
+						CHUNK_WRITE_TIMEOUT_COUNTER.with_label_values(&[namespace]).inc();
+						error!("Timeout while writing chunk");
+						return;
+					},
 				}
 			}
 		});
@@ -247,8 +291,8 @@ pub fn split_image<'a>(ns: Option<&'a str>, image: &'a str, default_ns: &'a str)
 		Some(v) => (v, image),
 		None => match image.split_once('/') {
 			Some((ns, image)) if image.contains('/') => (ns, image),
-			Some(_) | None => (default_ns, image)
-		}
+			Some(_) | None => (default_ns, image),
+		},
 	}
 }
 

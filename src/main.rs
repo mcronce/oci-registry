@@ -41,10 +41,14 @@ struct Config {
 	/// blob needs to be read from storage twice instead of just once.
 	#[clap(env, long, default_value_t = false)]
 	check_cache_digest: bool,
+	#[clap(env, long, default_value = "30s")]
+	blob_chunk_read_timeout: Duration,
+	#[clap(env, long, default_value = "30s")]
+	blob_chunk_write_timeout: Duration,
 	#[clap(flatten)]
 	upstream: UpstreamConfig,
 	#[clap(subcommand)]
-	storage: StorageConfig
+	storage: StorageConfig,
 }
 
 #[inline]
@@ -66,13 +70,13 @@ async fn cleanup(upstream: &InvalidationConfig, repo: &storage::Repository) {
 		Err(error) => {
 			error!(%error, "Error cleaning up blobs");
 			0
-		}
+		},
 	};
 	for (ns, age) in upstream.manifests.iter() {
 		let ns: &str = ns.as_ref();
 		match repo.delete_old_manifests(ns, now - *age).await {
 			Ok(v) => count += v,
-			Err(error) => error!(%error, namespace = ns, "Error cleaning up manifests")
+			Err(error) => error!(%error, namespace = ns, "Error cleaning up manifests"),
 		};
 	}
 
@@ -107,7 +111,11 @@ async fn main() {
 		})
 	};
 
-	let prometheus = PrometheusMetricsBuilder::new("http").endpoint("/metrics").build().unwrap();
+	let prometheus = PrometheusMetricsBuilder::new("http")
+		.endpoint("/metrics")
+		.buckets(&[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 30.0, 60.0, 120.0, 300.0])
+		.build()
+		.unwrap();
 	let per_request_config = web::Data::new(api::RequestConfig::new(repo, upstream, config.default_namespace, config.check_cache_digest));
 
 	let server = actix_web::HttpServer::new(move || {
@@ -135,19 +143,19 @@ async fn main() {
 								ok
 							})
 						})
-					})
+					}),
 			)
 			.service(
 				web::scope("/_admin")
 					.wrap(actix_web::middleware::Logger::default())
 					.route("/{image:[^{}]+}/manifests/{reference}", web::delete().to(api::delete_manifest))
-					.route("/{image:[^{}]+}/blobs/{digest}", web::delete().to(api::delete_blob))
+					.route("/{image:[^{}]+}/blobs/{digest}", web::delete().to(api::delete_blob)),
 			)
 			.route("/", web::get().to(liveness))
 	});
 	match config.listen {
 		socket_address::Address::Network(addr) => server.shutdown_timeout(10).bind(&addr).unwrap().run().await.unwrap(),
-		socket_address::Address::UnixSocket(path) => server.shutdown_timeout(10).bind_uds(&path).unwrap().run().await.unwrap()
+		socket_address::Address::UnixSocket(path) => server.shutdown_timeout(10).bind_uds(&path).unwrap().run().await.unwrap(),
 	};
 	shutdown_tx.send(()).unwrap();
 	background.await.unwrap();

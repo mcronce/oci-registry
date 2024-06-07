@@ -41,10 +41,10 @@ struct Config {
 	/// blob needs to be read from storage twice instead of just once.
 	#[clap(env, long, default_value_t = false)]
 	check_cache_digest: bool,
-	#[clap(env, long, default_value_t = 30)]
-	blob_chunk_read_timeout_seconds: u64,
-	#[clap(env, long, default_value_t = 30)]
-	blob_chunk_write_timeout_seconds: u64,
+	#[clap(env, long, default_value_t = 10)]
+	blob_first_chunk_read_timeout_seconds: u64,
+	#[clap(env, long, default_value_t = 10)]
+	blob_first_chunk_write_timeout_seconds: u64,
 	#[clap(flatten)]
 	upstream: UpstreamConfig,
 	#[clap(subcommand)]
@@ -121,8 +121,8 @@ async fn main() {
 		upstream,
 		config.default_namespace,
 		config.check_cache_digest,
-		Duration::from_secs(config.blob_chunk_read_timeout_seconds),
-		Duration::from_secs(config.blob_chunk_write_timeout_seconds),
+		Duration::from_secs(config.blob_first_chunk_read_timeout_seconds),
+		Duration::from_secs(config.blob_first_chunk_write_timeout_seconds),
 	));
 
 	let server = actix_web::HttpServer::new(move || {

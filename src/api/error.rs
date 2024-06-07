@@ -26,7 +26,13 @@ pub enum Error {
 	#[error("JSON error: {0}")]
 	Json(#[from] serde_json::Error),
 	#[error("{0}")]
-	DataCorrupt(#[from] DigestMismatchError)
+	DataCorrupt(#[from] DigestMismatchError),
+	#[error("Timeout while reading first blob chunk")]
+	FirstChunkReadTimeout,
+	#[error("Timeout while writing first blob chunk")]
+	FirstChunkWriteTimeout,
+	#[error("Readers for proxied blob request all closed")]
+	ReadersClosed,
 }
 
 impl actix_web::ResponseError for Error {
@@ -36,20 +42,23 @@ impl actix_web::ResponseError for Error {
 				Storage::Io(e) if e.kind() == std::io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
 				Storage::RusotoGet(e) if matches!(e.as_ref(), &RusotoError::Service(GetObjectError::NoSuchKey(_))) => StatusCode::NOT_FOUND,
 				Storage::RusotoDelete(e) if matches!(e.as_ref(), &RusotoError::Unknown(BufferedHttpResponse { status: StatusCode::NOT_FOUND, .. })) => StatusCode::NOT_FOUND,
-				_ => StatusCode::INTERNAL_SERVER_ERROR
+				_ => StatusCode::INTERNAL_SERVER_ERROR,
 			},
 			Self::Upstream(e) => match e {
 				Upstream::UnexpectedHttpStatus(StatusCode::NOT_FOUND) => StatusCode::NOT_FOUND,
 				Upstream::UnexpectedHttpStatus(_) => StatusCode::INTERNAL_SERVER_ERROR,
 				Upstream::Client { status: StatusCode::NOT_FOUND } => StatusCode::NOT_FOUND,
 				Upstream::Client { .. } => StatusCode::INTERNAL_SERVER_ERROR,
-				_ => StatusCode::INTERNAL_SERVER_ERROR
+				_ => StatusCode::INTERNAL_SERVER_ERROR,
 			},
 			Self::InvalidDigest => StatusCode::NOT_FOUND,
 			Self::MissingContentLength => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
 			Self::Json(_) => StatusCode::INTERNAL_SERVER_ERROR,
-			Self::DataCorrupt(_) => StatusCode::INTERNAL_SERVER_ERROR
+			Self::DataCorrupt(_) => StatusCode::INTERNAL_SERVER_ERROR,
+			Self::FirstChunkReadTimeout => StatusCode::GATEWAY_TIMEOUT,
+			Self::FirstChunkWriteTimeout => StatusCode::GATEWAY_TIMEOUT,
+			Self::ReadersClosed => StatusCode::INTERNAL_SERVER_ERROR,
 		}
 	}
 

@@ -12,20 +12,20 @@ test() {
 
   # containerd
   url="localhost:8080/v2/$2?ns=$1"
-  curl -s -o /dev/null -w "  %{http_code}: $url\n" "$url"
+  curl -sS -o /dev/null -w "  %{http_code}: $url\n" "$url"
 
   rm -rf /tmp/oci-mirror
 
   # cri-o
   url="localhost:8080/v2/$1/$2"
-  curl -s -o /dev/null -w "  %{http_code}: $url\n" "$url"
+  curl -sS -o /dev/null -w "  %{http_code}: $url\n" "$url"
 
   rm -rf /tmp/oci-mirror
 
   # Special Docker Hub case falling back to default_ns
   if [ "$1" == "docker.io" ]; then
     url="localhost:8080/v2/$2"
-    curl -s -o /dev/null -w "  %{http_code}: $url\n" "$url"
+    curl -sS -o /dev/null -w "  %{http_code}: $url\n" "$url"
   fi
 }
 

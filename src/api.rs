@@ -105,26 +105,26 @@ pub async fn manifest(req: web::Path<ManifestRequest>, qstr: web::Query<Manifest
 
 	let (namespace, image) = split_image(qstr.ns.as_deref(), req.image.as_ref(), config.default_ns.as_ref());
 
-	let max_age = config.upstream.lock().await.get(namespace)?.manifest_invalidation_time;
-	let storage_path = req.storage_path(namespace);
+	let max_age = config.upstream.lock().await.get(namespace.as_str())?.manifest_invalidation_time;
+	let storage_path = req.storage_path(namespace.as_str());
 	match config.repo.read(&storage_path, max_age).await {
 		Ok(stream) => {
 			let body = stream.into_inner().try_collect::<web::BytesMut>().await?;
 			let manifest = serde_json::from_slice(body.as_ref())?;
-			HIT_COUNTER.with_label_values(&[namespace]).inc();
+			HIT_COUNTER.with_label_values(&[namespace.as_str()]).inc();
 			return Ok(manifest_response(manifest));
 		},
 		Err(error) => warn!(path = req.http_path(), storage_path, %error, "Manifest not found in repository; pulling from upstream"),
 	}
 
-	MISS_COUNTER.with_label_values(&[namespace]).inc();
+	MISS_COUNTER.with_label_values(&[namespace.as_str()]).inc();
 	let manifest = {
-		let mut upstream = config.upstream.lock().await.get(namespace)?.clone();
+		let mut upstream = config.upstream.lock().await.get(namespace.as_str())?.clone();
 		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", image)).await?;
 		let reference = req.reference.to_str();
-		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), Some(namespace)).await {
+		let (manifest, media_type, digest) = match upstream.client.get_raw_manifest_and_metadata(image.as_str(), reference.as_ref(), Some(namespace.as_str())).await {
 			Ok(v) => v,
-			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(image, reference.as_ref(), None).await?,
+			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_raw_manifest_and_metadata(image.as_str(), reference.as_ref(), None).await?,
 			Err(e) => return Err(e.into()),
 		};
 		Manifest::new(manifest, media_type, digest)
@@ -184,13 +184,13 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let (namespace, image) = split_image(qstr.ns.as_deref(), req.image.as_ref(), config.default_ns.as_ref());
 
 	let storage_path = req.storage_path();
-	let max_age = config.upstream.lock().await.get(namespace)?.blob_invalidation_time;
+	let max_age = config.upstream.lock().await.get(namespace.as_str())?.blob_invalidation_time;
 	match config.repo.read(storage_path.as_ref(), max_age).await {
 		Ok(stream) => match config.check_cache_digest {
 			true => {
 				let hash = stream::hash(stream.into_inner()).await?;
 				if (hash == wanted_digest) {
-					HIT_COUNTER.with_label_values(&[namespace]).inc();
+					HIT_COUNTER.with_label_values(&[namespace.as_str()]).inc();
 					let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
 					return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
 				}
@@ -198,7 +198,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 				config.repo.delete(storage_path.as_ref()).await?;
 			},
 			false => {
-				HIT_COUNTER.with_label_values(&[namespace]).inc();
+				HIT_COUNTER.with_label_values(&[namespace.as_str()]).inc();
 				let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
 				return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
 			},
@@ -206,13 +206,13 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		Err(error) => warn!(path = storage_path, %error, "Blob not found in repository; pulling from upstream"),
 	};
 
-	MISS_COUNTER.with_label_values(&[namespace]).inc();
+	MISS_COUNTER.with_label_values(&[namespace.as_str()]).inc();
 	let response = {
-		let mut upstream = config.upstream.lock().await.get(namespace)?.clone();
+		let mut upstream = config.upstream.lock().await.get(namespace.as_str())?.clone();
 		authenticate_with_upstream(&mut upstream.client, &format!("repository:{}:pull", image)).await?;
-		match upstream.client.get_blob_response(image, req.digest.as_ref(), Some(namespace)).await {
+		match upstream.client.get_blob_response(image.as_str(), req.digest.as_ref(), Some(namespace.as_str())).await {
 			Ok(v) => v,
-			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(image, req.digest.as_ref(), None).await?,
+			Err(e) if should_retry_without_namespace(&e) => upstream.client.get_blob_response(image.as_str(), req.digest.as_ref(), None).await?,
 			Err(e) => return Err(e.into()),
 		}
 	};
@@ -226,13 +226,13 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 		let chunk_write_timeout = config.blob_chunk_write_timeout.clone();
 		rt::spawn(async move {
 			while let Some(chunk) = {
-				let chunk_read_timer = CHUNK_READ_DURATION_HISTOGRAM.with_label_values(&[namespace]).start_timer();
+				let chunk_read_timer = CHUNK_READ_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str()]).start_timer();
 				let chunk_read_result = timeout(chunk_read_timeout, stream.next()).await;
 				chunk_read_timer.observe_duration();
 				match chunk_read_result {
 					Ok(chunk) => chunk,
 					Err(_) => {
-						CHUNK_READ_TIMEOUT_COUNTER.with_label_values(&[namespace]).inc();
+						CHUNK_READ_TIMEOUT_COUNTER.with_label_values(&[namespace.as_str()]).inc();
 						error!("Timeout while reading chunk");
 						return;
 					},
@@ -246,7 +246,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 					},
 				};
 				let is_err = chunk.is_err();
-				let chunk_write_timer = CHUNK_WRITE_DURATION_HISTOGRAM.with_label_values(&[namespace]).start_timer();
+				let chunk_write_timer = CHUNK_WRITE_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str()]).start_timer();
 				let chunk_write_result = timeout(chunk_write_timeout, tx.broadcast(chunk)).await;
 				chunk_write_timer.observe_duration();
 				match chunk_write_result {
@@ -260,7 +260,7 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 						return;
 					},
 					Err(_) => {
-						CHUNK_WRITE_TIMEOUT_COUNTER.with_label_values(&[namespace]).inc();
+						CHUNK_WRITE_TIMEOUT_COUNTER.with_label_values(&[namespace.as_str()]).inc();
 						error!("Timeout while writing chunk");
 						return;
 					},
@@ -286,19 +286,19 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 }
 
 #[inline]
-pub fn split_image<'a>(ns: Option<&'a str>, image: &'a str, default_ns: &'a str) -> (&'a str, &'a str) {
+pub fn split_image(ns: Option<&str>, image: &str, default_ns: &str) -> (String, String) {
 	match ns {
-		Some(v) => (v, image),
+		Some(v) => (v.to_string(), image.to_string()),
 		None => match image.split_once('/') {
-			Some((ns, image)) if image.contains('/') => (ns, image),
-			Some(_) | None => (default_ns, image),
+			Some((ns, image)) if image.contains('/') => (ns.to_string(), image.to_string()),
+			Some(_) | None => (default_ns.to_string(), image.to_string()),
 		},
 	}
 }
 
 pub async fn delete_manifest(req: web::Path<ManifestRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<&'static str, Error> {
 	let (namespace, _) = split_image(qstr.ns.as_deref(), req.image.as_ref(), config.default_ns.as_ref());
-	let storage_path = req.storage_path(namespace);
+	let storage_path = req.storage_path(namespace.as_str());
 	config.repo.delete(storage_path.as_ref()).await?;
 	Ok("")
 }

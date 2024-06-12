@@ -10,6 +10,7 @@ use compact_str::CompactString;
 use dkregistry::v2::Client;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
+use futures::Stream;
 use once_cell::sync::Lazy;
 use prometheus::register_histogram_vec;
 use prometheus::register_int_counter_vec;
@@ -165,10 +166,6 @@ impl BlobRequest {
 pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryString>, config: web::Data<RequestConfig>) -> Result<HttpResponse, Error> {
 	static HIT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_cache_hits", "Number of blobs read from cache", &["namespace"]).unwrap());
 	static MISS_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_cache_misses", "Number of blob requests that went to upstream", &["namespace"]).unwrap());
-	static CHUNK_READ_DURATION_HISTOGRAM: Lazy<HistogramVec> = Lazy::new(|| register_histogram_vec!("blob_chunk_read_duration_seconds", "Duration of blob chunk reads", &["namespace"]).unwrap());
-	static FIRST_CHUNK_READ_TIMEOUT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_first_chunk_read_timeouts", "Number of blob chunk reads that timed out", &["namespace"]).unwrap());
-	static CHUNK_WRITE_DURATION_HISTOGRAM: Lazy<HistogramVec> = Lazy::new(|| register_histogram_vec!("blob_chunk_write_duration_seconds", "Duration of blob chunk writes", &["namespace"]).unwrap());
-	static FIRST_CHUNK_WRITE_TIMEOUT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_first_chunk_write_timeouts", "Number of blob chunk writes that timed out", &["namespace"]).unwrap());
 
 	let Some(wanted_digest_hex) = req.digest.strip_prefix("sha256:") else {
 		return Err(Error::InvalidDigest);
@@ -192,7 +189,12 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 				if (hash == wanted_digest) {
 					HIT_COUNTER.with_label_values(&[namespace.as_str()]).inc();
 					let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
-					return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
+					let len = stream.length();
+					let (tx, rx) = async_broadcast::broadcast(16);
+					if let Some(result) = chunk(req, &config, namespace, stream.into_inner().err_into::<crate::storage::Error>(), tx, true).await {
+						return result;
+					}
+					return Ok(HttpResponse::Ok().body(SizedStream::new(len, rx.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))));
 				}
 				error!(storage_path, "Digest mismatch");
 				config.repo.delete(storage_path.as_ref()).await?;
@@ -200,7 +202,12 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 			false => {
 				HIT_COUNTER.with_label_values(&[namespace.as_str()]).inc();
 				let stream = config.repo.read(storage_path.as_ref(), max_age).await?;
-				return Ok(HttpResponse::Ok().body(SizedStream::new(stream.length(), stream.into_inner())));
+				let len = stream.length();
+				let (tx, rx) = async_broadcast::broadcast(16);
+				if let Some(result) = chunk(req, &config, namespace, stream.into_inner().err_into::<crate::storage::Error>(), tx, true).await {
+					return result;
+				}
+				return Ok(HttpResponse::Ok().body(SizedStream::new(len, rx.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))));
 			},
 		},
 		Err(error) => warn!(path = storage_path, %error, "Blob not found in repository; pulling from upstream"),
@@ -220,69 +227,10 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	let len = response.size().ok_or(Error::MissingContentLength)?;
 	let (tx, rx) = async_broadcast::broadcast(16);
 	{
-		let mut stream = DigestCheckedStream::<_, crate::storage::Error, _>::new(response.stream().err_into::<crate::storage::Error>(), wanted_digest);
-
-		// Read/write the first blob chunk with the provided timeouts
-		while let Some(chunk) = {
-			let chunk_read_timer = CHUNK_READ_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str()]).start_timer();
-			let first_chunk_read_result = timeout(config.blob_first_chunk_read_timeout, stream.next()).await;
-			chunk_read_timer.observe_duration();
-			match first_chunk_read_result {
-				Ok(chunk) => chunk,
-				Err(_) => {
-					FIRST_CHUNK_READ_TIMEOUT_COUNTER.with_label_values(&[namespace.as_str()]).inc();
-					error!(path = req.http_path(), "Timeout while reading first blob chunk");
-					return Err(Error::FirstChunkReadTimeout);
-				},
-			}
-		} {
-			let chunk = match chunk {
-				Ok(v) => Ok(v),
-				Err(error) => {
-					error!(path = req.http_path(), %error, "Error reading from upstream");
-					Err(error)
-				},
-			};
-			let chunk_write_timer = CHUNK_WRITE_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str()]).start_timer();
-			let first_chunk_write_result = timeout(config.blob_first_chunk_write_timeout, tx.broadcast(chunk)).await;
-			chunk_write_timer.observe_duration();
-			match first_chunk_write_result {
-				Ok(Ok(_)) => (),
-				Ok(Err(_)) => {
-					error!(path = req.http_path(), "Readers for proxied blob request all closed");
-					return Err(Error::ReadersClosed);
-				},
-				Err(_) => {
-					FIRST_CHUNK_WRITE_TIMEOUT_COUNTER.with_label_values(&[namespace.as_str()]).inc();
-					error!(path = req.http_path(), "Timeout while writing first blob chunk");
-					return Err(Error::FirstChunkWriteTimeout);
-				},
-			}
-			break;
+		let stream = DigestCheckedStream::<_, crate::storage::Error, _>::new(response.stream().err_into::<crate::storage::Error>(), wanted_digest);
+		if let Some(result) = chunk(req, &config, namespace, stream, tx, false).await {
+			return result;
 		}
-
-		rt::spawn(async move {
-			while let Some(chunk) = {
-				let chunk_read_timer = CHUNK_READ_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str()]).start_timer();
-				let chunk = stream.next().await;
-				chunk_read_timer.observe_duration();
-				chunk
-			} {
-				let chunk = match chunk {
-					Ok(v) => Ok(v),
-					Err(error) => {
-						error!(%error, "Error reading from upstream");
-						Err(error)
-					},
-				};
-				let chunk_write_timer = CHUNK_WRITE_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str()]).start_timer();
-				if (tx.broadcast(chunk).await.is_err()) {
-					error!(path = req.http_path(), "Readers for proxied blob request all closed");
-					return;
-				}
-				chunk_write_timer.observe_duration();
-			}
-		});
 	}
 
 	{
@@ -299,6 +247,96 @@ pub async fn blob(req: web::Path<BlobRequest>, qstr: web::Query<ManifestQueryStr
 	}
 
 	Ok(HttpResponse::Ok().body(SizedStream::new(len, rx.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e)))))
+}
+
+async fn chunk(
+	req: web::Path<BlobRequest>,
+	config: &web::Data<RequestConfig>,
+	namespace: String,
+	mut stream: impl Stream<Item = Result<web::Bytes, crate::storage::Error>> + Unpin + 'static,
+	tx: async_broadcast::Sender<Result<web::Bytes, crate::storage::Error>>,
+	hit: bool,
+) -> Option<Result<HttpResponse, Error>> {
+	static CHUNK_READ_DURATION_HISTOGRAM: Lazy<HistogramVec> = Lazy::new(|| register_histogram_vec!("blob_chunk_read_duration_seconds", "Duration of blob chunk reads", &["namespace", "hit"]).unwrap());
+	static FIRST_CHUNK_READ_TIMEOUT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_first_chunk_read_timeouts", "Number of blob chunk reads that timed out", &["namespace", "hit"]).unwrap());
+	static CHUNK_WRITE_DURATION_HISTOGRAM: Lazy<HistogramVec> = Lazy::new(|| register_histogram_vec!("blob_chunk_write_duration_seconds", "Duration of blob chunk writes", &["namespace", "hit"]).unwrap());
+	static FIRST_CHUNK_WRITE_TIMEOUT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_first_chunk_write_timeouts", "Number of blob chunk writes that timed out", &["namespace", "hit"]).unwrap());
+
+	// Read/write the first blob chunk with the provided timeouts
+	while let Some(chunk) = {
+		let chunk_read_timer = CHUNK_READ_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str(), &hit.to_string()]).start_timer();
+		let first_chunk_read_result = timeout(config.blob_first_chunk_read_timeout, stream.next()).await;
+		chunk_read_timer.observe_duration();
+
+		match first_chunk_read_result {
+			Ok(chunk) => chunk,
+			Err(_) => {
+				FIRST_CHUNK_READ_TIMEOUT_COUNTER.with_label_values(&[namespace.as_str(), &hit.to_string()]).inc();
+				error!(path = req.http_path(), "Timeout while reading first blob chunk");
+				return Some(Err(Error::FirstChunkReadTimeout));
+			},
+		}
+	} {
+		let chunk = match chunk {
+			Ok(v) => Ok(v),
+			Err(error) => {
+				error!(path = req.http_path(), %error, "Error reading from upstream");
+				Err(error)
+			},
+		};
+
+		let chunk_write_timer = CHUNK_WRITE_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str(), &hit.to_string()]).start_timer();
+		let first_chunk_write_result = timeout(config.blob_first_chunk_write_timeout, tx.broadcast(chunk)).await;
+		chunk_write_timer.observe_duration();
+
+		match first_chunk_write_result {
+			Ok(Ok(_)) => (),
+			Ok(Err(_)) => {
+				error!(path = req.http_path(), "Readers for proxied blob request all closed");
+				return Some(Err(Error::ReadersClosed));
+			},
+			Err(_) => {
+				FIRST_CHUNK_WRITE_TIMEOUT_COUNTER.with_label_values(&[namespace.as_str(), &hit.to_string()]).inc();
+				error!(path = req.http_path(), "Timeout while writing first blob chunk");
+				return Some(Err(Error::FirstChunkWriteTimeout));
+			},
+		}
+
+		break;
+	}
+
+	// Read/write the rest of the blob chunks
+	rt::spawn(async move {
+		Some(
+			while let Some(chunk) = {
+				let chunk_read_timer = CHUNK_READ_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str(), &hit.to_string()]).start_timer();
+				let chunk = stream.next().await;
+				chunk_read_timer.observe_duration();
+				chunk
+			} {
+				let chunk = match chunk {
+					Ok(v) => Ok(v),
+					Err(error) => {
+						error!(%error, "Error reading from upstream");
+						Err(error)
+					},
+				};
+
+				let is_err = chunk.is_err();
+				let chunk_write_timer = CHUNK_WRITE_DURATION_HISTOGRAM.with_label_values(&[namespace.as_str(), &hit.to_string()]).start_timer();
+				if (tx.broadcast(chunk).await.is_err()) {
+					error!(path = req.http_path(), "Readers for proxied blob request all closed");
+					return Some(());
+				} else if is_err {
+					chunk_write_timer.observe_duration();
+					return Some(());
+				}
+				chunk_write_timer.observe_duration();
+			},
+		)
+	});
+
+	None
 }
 
 #[inline]

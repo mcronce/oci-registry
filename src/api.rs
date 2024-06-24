@@ -257,6 +257,7 @@ async fn chunk(
 	tx: async_broadcast::Sender<Result<web::Bytes, crate::storage::Error>>,
 	hit: bool,
 ) -> Option<Result<HttpResponse, Error>> {
+	static CHUNK_SIZE_HISTOGRAM: Lazy<HistogramVec> = Lazy::new(|| register_histogram_vec!("blob_chunk_size_bytes", "Size of blob chunks", &["namespace", "hit"]).unwrap());
 	static CHUNK_READ_DURATION_HISTOGRAM: Lazy<HistogramVec> = Lazy::new(|| register_histogram_vec!("blob_chunk_read_duration_seconds", "Duration of blob chunk reads", &["namespace", "hit"]).unwrap());
 	static FIRST_CHUNK_READ_TIMEOUT_COUNTER: Lazy<IntCounterVec> = Lazy::new(|| register_int_counter_vec!("blob_first_chunk_read_timeouts", "Number of blob chunk reads that timed out", &["namespace", "hit"]).unwrap());
 	static CHUNK_WRITE_DURATION_HISTOGRAM: Lazy<HistogramVec> = Lazy::new(|| register_histogram_vec!("blob_chunk_write_duration_seconds", "Duration of blob chunk writes", &["namespace", "hit"]).unwrap());
@@ -278,7 +279,10 @@ async fn chunk(
 		}
 	} {
 		let chunk = match chunk {
-			Ok(v) => Ok(v),
+			Ok(v) => {
+				CHUNK_SIZE_HISTOGRAM.with_label_values(&[namespace.as_str(), &hit.to_string()]).observe(v.len() as f64);
+				Ok(v)
+			},
 			Err(error) => {
 				error!(path = req.http_path(), %error, "Error reading from upstream");
 				Err(error)
